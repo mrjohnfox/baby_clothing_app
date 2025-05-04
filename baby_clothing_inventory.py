@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import os
 import time
 from PIL import Image
-import streamlit as st
 
 st.set_page_config(
     page_title="Baby Clothing Inventory",
