@@ -80,11 +80,70 @@ st.markdown(
 )
 
 # Sidebar menu
+# Update the sidebar menu to include "Search & Filter"
 menu = st.sidebar.radio(
     "Menu",
-    ["Add Item", "View Inventory", "Search & Edit", "Visualize Data", "Gallery", "Export/Import"],
-    index=0
+    [
+        "Add Item",
+        "View Inventory",
+        "Search & Filter",
+        "Search & Edit",
+        "Visualize Data",
+        "Gallery",
+        "Export/Import",
+    ],
+    index=0,
 )
+
+# ...
+
+elif menu == "Search & Filter":
+    st.title("Search & Filter Inventory")
+    df = pd.read_sql("SELECT * FROM baby_clothes", conn)
+    if df.empty:
+        st.info("No items in inventory.")
+    else:
+        # Filter controls
+        cat_sel = st.multiselect(
+            "Category",
+            options=sorted(df["category"].unique()),
+            default=list(df["category"].unique()),
+        )
+        age_sel = st.multiselect(
+            "Age Range",
+            options=sorted(df["age_range"].unique()),
+            default=list(df["age_range"].unique()),
+        )
+        text_query = st.text_input("Search Description…")
+
+        # Apply filters
+        filtered = df[df["category"].isin(cat_sel) & df["age_range"].isin(age_sel)]
+        if text_query:
+            filtered = filtered[
+                filtered["description"].str.contains(text_query, case=False, na=False)
+            ]
+
+        st.write(f"Showing {len(filtered)} of {len(df)} items")
+
+        # Display results using the same layout as View Inventory
+        if filtered.empty:
+            st.warning("No items match those filters.")
+        else:
+            for cat in filtered["category"].unique():
+                with st.expander(cat, expanded=True):
+                    items = filtered[filtered["category"] == cat]
+                    if len(items) >= 3:
+                        cols = st.columns(3)
+                    elif len(items) == 2:
+                        cols = st.columns(2)
+                    else:
+                        cols = [st.container()]
+                    for idx, row in items.iterrows():
+                        col = cols[idx % len(cols)]
+                        with col:
+                            show_image_bytes(row["photo_path"], row["description"])
+                            st.write(f"**Age:** {row['age_range']}")
+                            st.write(f"**Description:** {row['description']}")
 
 # Helper to display images via GitHub raw URLs
 from io import BytesIO
