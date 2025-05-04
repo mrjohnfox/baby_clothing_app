@@ -53,30 +53,12 @@ cursor.execute(
 )
 conn.commit()
 
-# Sidebar collapse state
-if "menu_collapsed" not in st.session_state:
-    st.session_state.menu_collapsed = False
-
-# Sidebar menu inside expander
-with st.sidebar.expander("Menu", expanded=not st.session_state.menu_collapsed):
-    menu = st.radio(
-        "Navigate to",
-        [
-            "Add Item",
-            "View Inventory",
-            "Search & Manage",
-            "Visualize Data",
-            "Gallery",
-            "Export/Import",
-        ],
-        index=0,
-        key="sidebar_menu",
-    )
-
-# Collapse sidebar after selection
-if st.session_state.get("sidebar_menu") is not None:
-    st.session_state.menu_collapsed = True
-menu = st.session_state.sidebar_menu
+# Sidebar
+menu = st.sidebar.radio(
+    "Menu",
+    ["Add Item", "View Inventory", "Search & Manage", "Visualize Data", "Gallery", "Export/Import"],
+    index=0,
+)
 
 # Helper to display images
 from io import BytesIO
