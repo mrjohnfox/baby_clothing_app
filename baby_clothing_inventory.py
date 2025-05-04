@@ -145,15 +145,15 @@ elif menu == "View Inventory":
                     with col:
                         try:
 
-                            filename = os.path.basename(row["photo_path"].strip())
+                    filename = os.path.basename(row["photo_path"].strip())
 
-                            github_image_url = f"https://raw.githubusercontent.com/mrjohnfox/baby_clothing_app/main/baby_clothes_photos/{filename}"
+                    github_image_url = f"https://raw.githubusercontent.com/mrjohnfox/baby_clothing_app/main/baby_clothes_photos/{filename}"
 
-                            st.image(github_image_url, use_container_width=True, caption=row.get("description", ""))
+                    st.image(github_image_url, use_container_width=True, caption=row.get("description", ""))
 
-                        except Exception as e:
+                except Exception as e:
 
-                            st.warning(f"Could not load image: {e}")
+                    st.warning(f"Could not load image: {e}")
 
 elif menu == "Search & Edit":
     st.title("Search & Edit Items")
@@ -162,18 +162,17 @@ elif menu == "Search & Edit":
     if not df.empty:
         for index, row in df.iterrows():
             with st.expander(f"{row['category']} ({row['age_range']}) - {row['description']}"):
-                if row["photo_path"] and os.path.exists(row["photo_path"]):
-    try:
+                try:
 
-                            filename = os.path.basename(row["photo_path"].strip())
+                    filename = os.path.basename(row["photo_path"].strip())
 
-                            github_image_url = f"https://raw.githubusercontent.com/mrjohnfox/baby_clothing_app/main/baby_clothes_photos/{filename}"
+                    github_image_url = f"https://raw.githubusercontent.com/mrjohnfox/baby_clothing_app/main/baby_clothes_photos/{filename}"
 
-                            st.image(github_image_url, use_container_width=True, caption=row.get("description", ""))
+                    st.image(github_image_url, use_container_width=True, caption=row.get("description", ""))
 
-                        except Exception as e:
+                except Exception as e:
 
-                            st.warning(f"Could not load image: {e}")
+                    st.warning(f"Could not load image: {e}")
 
                 st.write(f"**Category:** {row['category']}")
                 st.write(f"**Age Range:** {row['age_range']}")
@@ -252,18 +251,17 @@ elif menu == "Gallery":
         for idx, row in df.iterrows():
             col = [col1, col2, col3][idx % 3]
                     with col:
-                if row["photo_path"] and os.path.exists(row["photo_path"]):
-                        try:
+                try:
 
-                            filename = os.path.basename(row["photo_path"].strip())
+                    filename = os.path.basename(row["photo_path"].strip())
 
-                            github_image_url = f"https://raw.githubusercontent.com/mrjohnfox/baby_clothing_app/main/baby_clothes_photos/{filename}"
+                    github_image_url = f"https://raw.githubusercontent.com/mrjohnfox/baby_clothing_app/main/baby_clothes_photos/{filename}"
 
-                            st.image(github_image_url, use_container_width=True, caption=row.get("description", ""))
+                    st.image(github_image_url, use_container_width=True, caption=row.get("description", ""))
 
-                        except Exception as e:
+                except Exception as e:
 
-                            st.warning(f"Could not load image: {e}")
+                    st.warning(f"Could not load image: {e}")
 
 elif menu == "Export/Import":
     st.title("Export and Import Data")
@@ -292,7 +290,7 @@ elif menu == "Export/Import":
             imported_df = pd.read_csv(uploaded_csv)
             imported_df.to_sql("baby_clothes", conn, if_exists="append", index=False)
             st.success("Data imported successfully!")
-                        except Exception as e:
+                except Exception as e:
             st.error(f"An error occurred: {e}")
 
 elif menu == "Visualize Data":
