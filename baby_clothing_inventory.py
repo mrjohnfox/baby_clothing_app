@@ -158,7 +158,6 @@ if menu == "Add Item":
 
         submit = st.form_submit_button("Add Item")
 
-
         if submit:
             # pick camera first, else file upload
             if camera_file:
