@@ -130,7 +130,7 @@ elif menu == "View Inventory":
                 elif len(category_items) == 1:
                     col1 = st.container()
                     col2, col3 = None, None
-                else:
+else:
                     st.write("No items in this category.")
                     continue
 
@@ -239,7 +239,7 @@ elif menu == "Search & Edit":
                     # Delay, then refresh
                     time.sleep(2)
                     st.rerun()
-    else:
+else:
         st.info("No items found in inventory.")
 
 elif menu == "Gallery":
@@ -270,7 +270,7 @@ elif menu == "Export/Import":
     export_button = st.button("Export as CSV")
     if export_button:
         df = pd.read_sql("SELECT * FROM baby_clothes", conn)
-        if not df.empty:
+    if not df.empty:
             csv_path = "baby_clothes_inventory.csv"
             df.to_csv(csv_path, index=False)
             with open(csv_path, "rb") as f:
@@ -280,7 +280,7 @@ elif menu == "Export/Import":
                     file_name="baby_clothes_inventory.csv",
                     mime="text/csv",
                 )
-        else:
+else:
             st.warning("No data available to export.")
 
     st.subheader("Import Inventory")
@@ -309,7 +309,7 @@ elif menu == "Visualize Data":
         df["age_range"].value_counts().plot(kind="pie", ax=ax, autopct="%1.1f%%")
         ax.set_title("Age Range Distribution")
         st.pyplot(fig)
-        else:
+else:
         st.info("No data to visualize.")
 
 conn.close()
