@@ -7,24 +7,39 @@ import os
 import time
 from PIL import Image
 
-# Page config and responsive CSS
 st.set_page_config(
     page_title="Baby Clothing Inventory",
     layout="wide",
     initial_sidebar_state="auto",
 )
+
+# Responsive CSS
 st.markdown(
     """
     <style>
     /* Stack all columns on screens narrower than 768px */
     @media (max-width: 768px) {
-      [data-testid="column"] { width: 100% !important; display: block !important; }
-      button, .stButton > button { width: 100% !important; margin: 0.5rem 0 !important; font-size: 1rem !important; padding: 0.75rem !important; }
-      textarea, input, .stTextInput > div > input { font-size: 1rem !important; }
-      .stPlotlyChart, .stPyplotContainer { padding: 0 !important; }
+      /* Streamlit columns have this attribute */
+      [data-testid="column"] {
+        width: 100% !important;
+        display: block !important;
+      }
+      /* Make buttons full-width for easier tapping */
+      button, .stButton > button {
+        width: 100% !important;
+        margin: 0.5rem 0 !important;
+        font-size: 1rem !important;
+        padding: 0.75rem !important;
+      }
+      /* Increase textarea/input size */
+      textarea, input, .stTextInput > div > input {
+        font-size: 1rem !important;
+      }
+      /* Reduce chart padding */
+      .stPlotlyChart, .stPyplotContainer {
+        padding: 0 !important;
+      }
     }
-    button { font-size:16px !important; padding:10px !important; }
-    .streamlit-expander { overflow-y:auto !important; max-height:300px; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -37,6 +52,7 @@ cursor = conn.cursor()
 
 # Ensure photos directory exists
 photos_dir = "baby_clothes_photos"
+PHOTOS_DIR = photos_dir
 os.makedirs(photos_dir, exist_ok=True)
 
 # Create database table if not exists
@@ -53,42 +69,61 @@ cursor.execute(
 )
 conn.commit()
 
-# Sidebar collapse state
-if "menu_collapsed" not in st.session_state:
-    st.session_state.menu_collapsed = False
+# CSS for Mobile Optimizations and Scrollable Dropdowns
+st.markdown(
+    """
+    <style>
+    button { font-size:16px !important; padding:10px !important; }
+    .streamlit-expander { overflow-y:auto !important; max-height:300px; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
-# Sidebar menu inside expander
-with st.sidebar.expander("Menu", expanded=not st.session_state.menu_collapsed):
-    menu = st.radio(
-        "Navigate to",
-        [
-            "Add Item",
-            "View Inventory",
-            "Search & Manage",
-            "Visualize Data",
-            "Gallery",
-            "Export/Import",
-        ],
-        index=0,
-        key="sidebar_menu",
-    )
+# Sidebar menu
+menu = st.sidebar.radio(
+    "Menu",
+    [
+        "Add Item",
+        "View Inventory",
+        "Search & Manage",
+        "Visualize Data",
+        "Gallery",
+        "Export/Import",
+    ],
+    index=0,
+)
 
-# Collapse sidebar after selection
-if st.session_state.get("sidebar_menu") is not None:
-    st.session_state.menu_collapsed = True
-menu = st.session_state.sidebar_menu
-
-# Helper to display images
+# Helper to display images via GitHub raw URLs
 from io import BytesIO
 from PIL import Image as PILImage
 
+# 3) Define categories and suggestion helper
+CATEGORIES = [
+    "Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
+    "Jumpers","Accessories","Shoes","Sleepwear","Sets",
+    "Home","Food Prep","Dungarees"
+]
+AGE_RANGES = [
+    "0–3 months","3–6 months","6–9 months","9–12 months","12–18 months",
+    "18–24 months","24–36 months","3–4 years","4–5 years","5–6 years","No age"
+]
+
+def suggest_category(image_bytes: bytes) -> str:
+    img = PILImage.open(BytesIO(image_bytes)).convert("RGB")
+    preds = classifier(img, top_k=5)
+    for p in preds:
+        label = p["label"].lower()
+        for cat in CATEGORIES:
+            if cat.lower() in label:
+                return cat
+    return CATEGORIES[0]
+
 @st.cache_data
 def load_and_prepare_image(path: str) -> bytes:
-    filename = os.path.basename(path.replace("\\", "/").strip())
+    filename = os.path.basename(path.replace('\\', '/').strip())
     full_path = os.path.join(photos_dir, filename)
     img = PILImage.open(full_path)
-    if img.mode != "RGB":
-        img = img.convert("RGB")
     max_w = 400
     if img.width > max_w:
         ratio = max_w / img.width
@@ -104,9 +139,11 @@ def show_image_bytes(path: str, caption: str = ""):
     except Exception as e:
         st.warning(f"Could not load image: {e}")
 
-# 1. Add Item
+# 1. Add Item Add Item
 if menu == "Add Item":
     st.title("Add New Baby Clothing Item")
+
+    # this flag lets us reset the form after submit
     if "reset_add_item" not in st.session_state:
         st.session_state.reset_add_item = False
     form_key = f"add_item_form_{st.session_state.reset_add_item}"
@@ -136,39 +173,47 @@ if menu == "Add Item":
 
         description = st.text_area("Description", key="form_description")
 
-        st.write("### Upload a Photo or Take a Photo")
-        uploaded_file = st.file_uploader("Upload Photo", type=["jpg", "png"], key="form_uploaded_file")
-        camera_file = st.camera_input("Take a Photo")
+        st.write("### Upload a Photo or Take One with Your Camera")
+        uploaded_file = st.file_uploader(
+            "Upload Photo", type=["jpg", "png"], key="form_uploaded_file"
+        )
+        camera_file = back_camera_input("Take a Photo")
 
         submit = st.form_submit_button("Add Item")
 
         if submit:
+            # choose camera first, otherwise upload
             if camera_file is not None:
                 photo_data = camera_file.getvalue()
-                filename = f"{int(time.time() * 1000)}.jpg"
+                filename   = f"{int(time.time() * 1000)}.jpg"
             elif uploaded_file is not None:
                 photo_data = uploaded_file.read()
-                filename = uploaded_file.name
+                filename   = uploaded_file.name
             else:
                 st.error("Please upload or take a photo.")
                 st.stop()
 
+            # save image
             local_path = os.path.join(photos_dir, filename)
             with open(local_path, "wb") as f:
                 f.write(photo_data)
 
+            # insert into DB
             cursor.execute(
-                "INSERT INTO baby_clothes (category, age_range, photo_path, description) VALUES (?, ?, ?, ?)",
+                "INSERT INTO baby_clothes (category, age_range, photo_path, description)"
+                " VALUES (?, ?, ?, ?)",
                 (category, age_range, local_path, description),
             )
             conn.commit()
 
             st.success("Baby clothing item added successfully!")
             time.sleep(2)
+
+            # flip flag so form keys change (this clears the form)
             st.session_state.reset_add_item = not st.session_state.reset_add_item
             st.rerun()
 
-# 2. View Inventory
+# ← Now you’re back at the top level for `elif menu == …`
 elif menu == "View Inventory":
     st.title("View Inventory")
     df = pd.read_sql("SELECT * FROM baby_clothes", conn)
@@ -186,7 +231,7 @@ elif menu == "View Inventory":
                         st.write(f"**Description:** {row['description']}")
 
 # 3. Search & Manage
-elif menu == "Search & Manage":
+if menu == "Search & Manage":
     st.title("Search & Manage Inventory")
     df = pd.read_sql("SELECT * FROM baby_clothes", conn)
     if df.empty:
@@ -230,27 +275,27 @@ elif menu == "Search & Manage":
                             new_category = st.selectbox(
                                 "Category",
                                 [
-                                    "Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
-                                    "Jumpers","Accessories","Shoes","Sleepwear","Sets",
-                                    "Home","Food Prep","Dungarees"
+                                    "Bodysuits", "Pants", "Tops", "Dresses", "Jackets", "Knitwear",
+                                    "Jumpers", "Accessories", "Shoes", "Sleepwear", "Sets", 
+                                    "Home", "Food Prep", "Dungarees"
                                 ],
                                 index=[
-                                    "Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
-                                    "Jumpers","Accessories","Shoes","Sleepwear","Sets",
-                                    "Home","Food Prep","Dungarees"
+                                    "Bodysuits", "Pants", "Tops", "Dresses", "Jackets", "Knitwear",
+                                    "Jumpers", "Accessories", "Shoes", "Sleepwear", "Sets", 
+                                    "Home", "Food Prep", "Dungarees"
                                 ].index(row["category"]),
                             )
                             new_age_range = st.selectbox(
                                 "Age Range",
                                 [
-                                    "0–3 months","3–6 months","6–9 months","9–12 months",
-                                    "12–18 months","18–24 months","24–36 months",
-                                    "3–4 years","4–5 years","5–6 years","No age"
+                                    "0–3 months", "3–6 months", "6–9 months", "9–12 months", 
+                                    "12–18 months", "18–24 months", "24–36 months", "3–4 years", 
+                                    "4–5 years", "5–6 years", "No age"
                                 ],
                                 index=[
-                                    "0–3 months","3–6 months","6–9 months","9–12 months",
-                                    "12–18 months","18–24 months","24–36 months",
-                                    "3–4 years","4–5 years","5–6 years","No age"
+                                    "0–3 months", "3–6 months", "6–9 months", "9–12 months", 
+                                    "12–18 months", "18–24 months", "24–36 months", "3–4 years", 
+                                    "4–5 years", "5–6 years", "No age"
                                 ].index(row["age_range"]),
                             )
                             new_description = st.text_area("Description", row["description"])
