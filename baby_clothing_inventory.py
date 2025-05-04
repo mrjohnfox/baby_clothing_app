@@ -144,13 +144,13 @@ elif menu == "View Inventory":
 
                     with col:
                             try:
-        if row["photo_path"] and os.path.exists(row["photo_path"]):
-            image = Image.open(row["photo_path"])
-            st.image(image, use_container_width=True, caption=row.get("description", ""))
-        else:
-            st.warning("Image not found.")
-    except Exception as e:
-        st.warning(f"Could not load image: {e}")
+    if row["photo_path"] and os.path.exists(row["photo_path"]):
+        image = Image.open(row["photo_path"])
+        st.image(image, use_container_width=True, caption=row.get("description", ""))
+    else:
+        st.warning("Image not found.")
+except Exception as e:
+    st.warning(f"Could not load image: {e}")
                         st.write(f"**Age:** {row['age_range']}")
                         st.write(f"**Description:** {row['description']}")
     else:
@@ -165,13 +165,13 @@ elif menu == "Search & Edit":
             with st.expander(f"{row['category']} ({row['age_range']}) - {row['description']}"):
                 if row["photo_path"] and os.path.exists(row["photo_path"]):
                         try:
-        if row["photo_path"] and os.path.exists(row["photo_path"]):
-            image = Image.open(row["photo_path"])
-            st.image(image, use_container_width=True, caption=row.get("description", ""))
-        else:
-            st.warning("Image not found.")
-    except Exception as e:
-        st.warning(f"Could not load image: {e}")
+    if row["photo_path"] and os.path.exists(row["photo_path"]):
+        image = Image.open(row["photo_path"])
+        st.image(image, use_container_width=True, caption=row.get("description", ""))
+    else:
+        st.warning("Image not found.")
+except Exception as e:
+    st.warning(f"Could not load image: {e}")
 
                 st.write(f"**Category:** {row['category']}")
                 st.write(f"**Age Range:** {row['age_range']}")
@@ -252,13 +252,13 @@ elif menu == "Gallery":
             with col:
                 if row["photo_path"] and os.path.exists(row["photo_path"]):
                         try:
-        if row["photo_path"] and os.path.exists(row["photo_path"]):
-            image = Image.open(row["photo_path"])
-            st.image(image, use_container_width=True, caption=row.get("description", ""))
-        else:
-            st.warning("Image not found.")
-    except Exception as e:
-        st.warning(f"Could not load image: {e}")
+    if row["photo_path"] and os.path.exists(row["photo_path"]):
+        image = Image.open(row["photo_path"])
+        st.image(image, use_container_width=True, caption=row.get("description", ""))
+    else:
+        st.warning("Image not found.")
+except Exception as e:
+    st.warning(f"Could not load image: {e}")
                 st.caption(f"{row['category']} ({row['age_range']})")
                 st.write(f"{row['description']}")
     else:
