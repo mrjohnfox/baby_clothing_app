@@ -100,13 +100,25 @@ from PIL import Image as PILImage
 
 @st.cache_data
 def load_and_prepare_image(path: str) -> bytes:
-    filename = os.path.basename(path.replace('\\', '/').strip())
+    from io import BytesIO
+    from PIL import Image as PILImage
+
+    # Normalize and build full path
+    filename = os.path.basename(path.replace("\\", "/").strip())
     full_path = os.path.join(photos_dir, filename)
+
+    # Open and convert to RGB if needed
     img = PILImage.open(full_path)
+    if img.mode != "RGB":
+        img = img.convert("RGB")
+
+    # Resize to max width 400px
     max_w = 400
     if img.width > max_w:
         ratio = max_w / img.width
         img = img.resize((max_w, int(img.height * ratio)), PILImage.LANCZOS)
+
+    # Save as JPEG into bytes
     buf = BytesIO()
     img.save(buf, format="JPEG", quality=85)
     return buf.getvalue()
