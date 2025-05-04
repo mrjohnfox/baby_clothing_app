@@ -143,61 +143,73 @@ def show_image_bytes(path: str, caption: str = ""):
 if menu == "Add Item":
     st.title("Add New Baby Clothing Item")
 
-    # reset flag for clearing the form
+    # this flag lets us reset the form after submit
     if "reset_add_item" not in st.session_state:
         st.session_state.reset_add_item = False
     form_key = f"add_item_form_{st.session_state.reset_add_item}"
 
     with st.form(key=form_key):
-        # 1) capture photo via back_camera_input (rear) or upload
-        camera_file   = back_camera_input("📷 Take a Photo")
-        uploaded_file = st.file_uploader("Upload Photo", type=["jpg","png"], key="form_uploaded_file")
-
-        # 2) choose bytes and auto‐suggest category
-        image_bytes = None
-        if camera_file:
-            image_bytes = camera_file.getvalue()
-        elif uploaded_file:
-            image_bytes = uploaded_file.read()
-
-        if image_bytes:
-            suggested = suggest_category(image_bytes)
-            st.info(f"Suggested category: **{suggested}**")
-            default_idx = CATEGORIES.index(suggested)
-        else:
-            default_idx = 0
-
-        # 3) metadata fields, with category defaulted
         cols = st.columns(2)
         with cols[0]:
-            category  = st.selectbox("Category", CATEGORIES, index=default_idx, key="form_category")
+            category = st.selectbox(
+                "Category",
+                [
+                    "Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
+                    "Jumpers","Accessories","Shoes","Sleepwear","Sets",
+                    "Home","Food Prep","Dungarees"
+                ],
+                key="form_category",
+            )
         with cols[1]:
-            age_range = st.selectbox("Age Range", AGE_RANGES, key="form_age_range")
+            age_range = st.selectbox(
+                "Age Range",
+                [
+                    "0–3 months","3–6 months","6–9 months","9–12 months",
+                    "12–18 months","18–24 months","24–36 months",
+                    "3–4 years","4–5 years","5–6 years","No age"
+                ],
+                key="form_age_range",
+            )
 
         description = st.text_area("Description", key="form_description")
+
+        st.write("### Upload a Photo or Take One with Your Camera")
+        uploaded_file = st.file_uploader(
+            "Upload Photo", type=["jpg", "png"], key="form_uploaded_file"
+        )
+        camera_file = back_camera_input("Take a Photo")
 
         submit = st.form_submit_button("Add Item")
 
         if submit:
-            if not image_bytes:
+            # choose camera first, otherwise upload
+            if camera_file is not None:
+                photo_data = camera_file.getvalue()
+                filename   = f"{int(time.time() * 1000)}.jpg"
+            elif uploaded_file is not None:
+                photo_data = uploaded_file.read()
+                filename   = uploaded_file.name
+            else:
                 st.error("Please upload or take a photo.")
                 st.stop()
 
             # save image
-            filename   = f"{int(time.time()*1000)}.jpg"
             local_path = os.path.join(photos_dir, filename)
             with open(local_path, "wb") as f:
-                f.write(image_bytes)
+                f.write(photo_data)
 
             # insert into DB
             cursor.execute(
-                "INSERT INTO baby_clothes (category, age_range, photo_path, description) VALUES (?,?,?,?)",
+                "INSERT INTO baby_clothes (category, age_range, photo_path, description)"
+                " VALUES (?, ?, ?, ?)",
                 (category, age_range, local_path, description),
             )
             conn.commit()
 
             st.success("Baby clothing item added successfully!")
             time.sleep(2)
+
+            # flip flag so form keys change (this clears the form)
             st.session_state.reset_add_item = not st.session_state.reset_add_item
             st.rerun()
 
