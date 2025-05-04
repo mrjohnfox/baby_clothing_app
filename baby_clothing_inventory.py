@@ -134,7 +134,7 @@ else:
                     st.write("No items in this category.")
                     continue
 
-                for idx, row in category_items.iterrows():
+                    for idx, row in category_items.iterrows():
                     if len(category_items) >= 3:
                         col = [col1, col2, col3][idx % 3]
                     elif len(category_items) == 2:
