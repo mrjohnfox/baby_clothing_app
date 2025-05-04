@@ -5,6 +5,45 @@ import matplotlib.pyplot as plt
 import os
 import time
 from PIL import Image
+import streamlit as st
+
+st.set_page_config(
+    page_title="Baby Clothing Inventory",
+    layout="wide",
+    initial_sidebar_state="auto",
+)
+
+# Responsive CSS
+st.markdown(
+    """
+    <style>
+    /* Stack all columns on screens narrower than 768px */
+    @media (max-width: 768px) {
+      /* Streamlit columns have this attribute */
+      [data-testid="column"] {
+        width: 100% !important;
+        display: block !important;
+      }
+      /* Make buttons full-width for easier tapping */
+      button, .stButton > button {
+        width: 100% !important;
+        margin: 0.5rem 0 !important;
+        font-size: 1rem !important;
+        padding: 0.75rem !important;
+      }
+      /* Increase textarea/input size */
+      textarea, input, .stTextInput > div > input {
+        font-size: 1rem !important;
+      }
+      /* Reduce chart padding */
+      .stPlotlyChart, .stPyplotContainer {
+        padding: 0 !important;
+      }
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 # Connect to SQLite database
 db_path = "baby_clothes_inventory.db"
