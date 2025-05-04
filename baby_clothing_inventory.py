@@ -30,7 +30,7 @@ conn.commit()
 
 # CSS for Mobile Optimizations and Scrollable Dropdowns
 st.markdown(
-"""
+    """
 <style>
 button {
 font-size: 16px !important;
@@ -42,14 +42,15 @@ max-height: 300px; /* Adjust dropdown max height */
 }
 </style>
 """,
-unsafe_allow_html=True,
+    unsafe_allow_html=True,
 )
 
 # Sidebar menu
 menu = st.sidebar.radio(
-"Menu",
-["Add Item", "View Inventory", "Search & Edit", "Visualize Data", "Gallery", "Export/Import"],
-index=0,  # Default to Add Item page
+    "Menu",
+    ["Add Item", "View Inventory", "Search & Edit",
+        "Visualize Data", "Gallery", "Export/Import"],
+    index=0,  # Default to Add Item page
 )
 
 if menu == "Add Item":
@@ -61,26 +62,51 @@ if menu == "Add Item":
 
         with st.form(key="add_item_form"):
         category = st.radio(
-        "Category",
-        [
-        "Bodysuits", "Pants", "Tops", "Dresses", "Jackets", "Knitwear",
-        "Jumpers", "Accessories", "Shoes", "Sleepwear", "Sets",
-        "Home", "Food Prep", "Dungarees"
-        ],
-        key="form_category" if st.session_state.reset_add_item else "category",
+            "Category",
+            [
+                "Bodysuits",
+                "Pants",
+                "Tops",
+                "Dresses",
+                "Jackets",
+                "Knitwear",
+                "Jumpers",
+                "Accessories",
+                "Shoes",
+                "Sleepwear",
+                "Sets",
+                "Home",
+                "Food Prep",
+                "Dungarees"],
+            key="form_category" if st.session_state.reset_add_item else "category",
         )
         age_range = st.radio(
-        "Age Range",
-        [
-        "0–3 months", "3–6 months", "6–9 months", "9–12 months", "12–18 months",
-        "18–24 months", "24–36 months", "3–4 years", "4–5 years", "5–6 years", "No age"
-        ],
-        key="form_age_range" if st.session_state.reset_add_item else "age_range",
+            "Age Range",
+            [
+                "0–3 months",
+                "3–6 months",
+                "6–9 months",
+                "9–12 months",
+                "12–18 months",
+                "18–24 months",
+                "24–36 months",
+                "3–4 years",
+                "4–5 years",
+                "5–6 years",
+                "No age"],
+            key="form_age_range" if st.session_state.reset_add_item else "age_range",
         )
-        description = st.text_area("Description", key="form_description" if st.session_state.reset_add_item else "description")
+        description = st.text_area(
+            "Description",
+            key="form_description" if st.session_state.reset_add_item else "description")
 
         st.write("### Upload a Photo")
-        uploaded_file = st.file_uploader("Upload Photo", type=["jpg", "png"], key="form_uploaded_file" if st.session_state.reset_add_item else "uploaded_file")
+        uploaded_file = st.file_uploader(
+            "Upload Photo",
+            type=[
+                "jpg",
+                "png"],
+            key="form_uploaded_file" if st.session_state.reset_add_item else "uploaded_file")
 
         submit_button = st.form_submit_button(label="Add Item")
 
@@ -94,12 +120,12 @@ if menu == "Add Item":
 
                 if photo_path:
                     cursor.execute(
-                """
+                        """
                 INSERT INTO baby_clothes (category, age_range, photo_path, description)
                 VALUES (?, ?, ?, ?)
                 """,
-                (category, age_range, photo_path, description),
-            )
+                        (category, age_range, photo_path, description),
+                    )
             conn.commit()
             st.success("Baby clothing item added successfully!")
 
@@ -145,38 +171,51 @@ if menu == "Add Item":
                                                 with col:
                                                     try:
 
-                                                        filename = os.path.basename(row["photo_path"].strip())
+                                                        filename = os.path.basename(
+                                                            row["photo_path"].strip())
 
                                                         github_image_url = f"https://raw.githubusercontent.com/mrjohnfox/baby_clothing_app/main/baby_clothes_photos/{filename}"
 
-                                                        st.image(github_image_url, use_container_width=True, caption=row.get("description", ""))
+                                                        st.image(
+                                                            github_image_url, use_container_width=True, caption=row.get(
+                                                                "description", ""))
 
                                                     except Exception as e:
 
-                                                        st.warning(f"Could not load image: {e}")
+                                                        st.warning(
+                                                            f"Could not load image: {e}")
 
                                                         elif menu == "Search & Edit":
-                                                            st.title("Search & Edit Items")
-                                                            df = pd.read_sql("SELECT * FROM baby_clothes", conn)
+                                                            st.title(
+                                                                "Search & Edit Items")
+                                                            df = pd.read_sql(
+                                                                "SELECT * FROM baby_clothes", conn)
 
                                                             if not df.empty:
                                                                 for index, row in df.iterrows():
                                                                     with st.expander(f"{row['category']} ({row['age_range']}) - {row['description']}"):
                                                                         try:
 
-                                                                            filename = os.path.basename(row["photo_path"].strip())
+                                                                            filename = os.path.basename(
+                                                                                row["photo_path"].strip())
 
                                                                             github_image_url = f"https://raw.githubusercontent.com/mrjohnfox/baby_clothing_app/main/baby_clothes_photos/{filename}"
 
-                                                                            st.image(github_image_url, use_container_width=True, caption=row.get("description", ""))
+                                                                            st.image(
+                                                                                github_image_url, use_container_width=True, caption=row.get(
+                                                                                    "description", ""))
 
                                                                         except Exception as e:
 
-                                                                            st.warning(f"Could not load image: {e}")
+                                                                            st.warning(
+                                                                                f"Could not load image: {e}")
 
-                                                                            st.write(f"**Category:** {row['category']}")
-                                                                            st.write(f"**Age Range:** {row['age_range']}")
-                                                                            st.write(f"**Description:** {row['description']}")
+                                                                            st.write(
+                                                                                f"**Category:** {row['category']}")
+                                                                            st.write(
+                                                                                f"**Age Range:** {row['age_range']}")
+                                                                            st.write(
+                                                                                f"**Description:** {row['description']}")
 
                 # ------ EDIT FEATURE ------
                 if st.button(f"Edit Item {row['id']}"):
@@ -185,46 +224,83 @@ if menu == "Add Item":
                     if st.session_state.get(f"editing_{row['id']}", False):
                         with st.form(key=f"edit_form_{row['id']}"):
                         new_category = st.selectbox(
-                        "Category",
-                        [
-                        "Bodysuits", "Pants", "Tops", "Dresses", "Jackets", "Knitwear",
-                        "Jumpers", "Accessories", "Shoes", "Sleepwear", "Sets",
-                        "Home", "Food Prep", "Dungarees"
-                        ],
-                        index=[
-                        "Bodysuits", "Pants", "Tops", "Dresses", "Jackets", "Knitwear",
-                        "Jumpers", "Accessories", "Shoes", "Sleepwear", "Sets",
-                        "Home", "Food Prep", "Dungarees"
-                        ].index(row["category"])
-                        )
+                            "Category",
+                            [
+                                "Bodysuits",
+                                "Pants",
+                                "Tops",
+                                "Dresses",
+                                "Jackets",
+                                "Knitwear",
+                                "Jumpers",
+                                "Accessories",
+                                "Shoes",
+                                "Sleepwear",
+                                "Sets",
+                                "Home",
+                                "Food Prep",
+                                "Dungarees"],
+                            index=[
+                                "Bodysuits",
+                                "Pants",
+                                "Tops",
+                                "Dresses",
+                                "Jackets",
+                                "Knitwear",
+                                "Jumpers",
+                                "Accessories",
+                                "Shoes",
+                                "Sleepwear",
+                                "Sets",
+                                "Home",
+                                "Food Prep",
+                                "Dungarees"].index(
+                                row["category"]))
                         new_age_range = st.selectbox(
-                        "Age Range",
-                        [
-                        "0–3 months", "3–6 months", "6–9 months", "9–12 months",
-                        "12–18 months", "18–24 months", "24–36 months", "3–4 years",
-                        "4–5 years", "5–6 years", "No age"
-                        ],
-                        index=[
-                        "0–3 months", "3–6 months", "6–9 months", "9–12 months",
-                        "12–18 months", "18–24 months", "24–36 months", "3–4 years",
-                        "4–5 years", "5–6 years", "No age"
-                        ].index(row["age_range"])
-                        )
-                        new_description = st.text_area("Description", row["description"])
+                            "Age Range",
+                            [
+                                "0–3 months",
+                                "3–6 months",
+                                "6–9 months",
+                                "9–12 months",
+                                "12–18 months",
+                                "18–24 months",
+                                "24–36 months",
+                                "3–4 years",
+                                "4–5 years",
+                                "5–6 years",
+                                "No age"],
+                            index=[
+                                "0–3 months",
+                                "3–6 months",
+                                "6–9 months",
+                                "9–12 months",
+                                "12–18 months",
+                                "18–24 months",
+                                "24–36 months",
+                                "3–4 years",
+                                "4–5 years",
+                                "5–6 years",
+                                "No age"].index(
+                                row["age_range"]))
+                        new_description = st.text_area(
+                            "Description", row["description"])
 
                         edit_submit = st.form_submit_button("Submit Changes")
 
                         if edit_submit:
                             cursor.execute(
-                            """
+                                """
                             UPDATE baby_clothes
                             SET category = ?, age_range = ?, description = ?
                             WHERE id = ?
                             """,
-                            (new_category, new_age_range, new_description, row["id"]),
+                                (new_category, new_age_range, new_description, row["id"]),
                             )
                             conn.commit()
-                            st.success(f"Item {row['id']} updated successfully!")
+                            st.success(
+                                f"Item {
+                                    row['id']} updated successfully!")
 
                             # Delay, then refresh
                             time.sleep(2)
@@ -232,7 +308,8 @@ if menu == "Add Item":
 
                 # ------ DELETE FEATURE ------
                 if st.button(f"Delete Item {row['id']}"):
-                    cursor.execute("DELETE FROM baby_clothes WHERE id = ?", (row["id"],))
+                    cursor.execute(
+                        "DELETE FROM baby_clothes WHERE id = ?", (row["id"],))
                     conn.commit()
                     st.warning(f"Item {row['id']} deleted successfully!")
 
@@ -244,7 +321,8 @@ if menu == "Add Item":
 
                         elif menu == "Gallery":
                             st.title("Photo Gallery")
-                            df = pd.read_sql("SELECT * FROM baby_clothes", conn)
+                            df = pd.read_sql(
+                                "SELECT * FROM baby_clothes", conn)
 
                             if not df.empty:
                                 col1, col2, col3 = st.columns(3)
@@ -253,20 +331,29 @@ if menu == "Add Item":
                                     with col:
                                         try:
 
-                                            filename = os.path.basename(row["photo_path"].strip())
+                                            filename = os.path.basename(
+                                                row["photo_path"].strip())
 
                                             github_image_url = f"https://raw.githubusercontent.com/mrjohnfox/baby_clothing_app/main/baby_clothes_photos/{filename}"
 
-                                            st.image(github_image_url, use_container_width=True, caption=row.get("description", ""))
+                                            st.image(
+                                                github_image_url,
+                                                use_container_width=True,
+                                                caption=row.get(
+                                                    "description",
+                                                    ""))
 
                                         except Exception as e:
 
-                                            st.warning(f"Could not load image: {e}")
+                                            st.warning(
+                                                f"Could not load image: {e}")
 
                                             elif menu == "Export/Import":
-                                                st.title("Export and Import Data")
+                                                st.title(
+                                                    "Export and Import Data")
 
-                                                st.subheader("Export Inventory")
+                                                st.subheader(
+                                                    "Export Inventory")
     export_button = st.button("Export as CSV")
     if export_button:
         df = pd.read_sql("SELECT * FROM baby_clothes", conn)
@@ -275,10 +362,10 @@ if menu == "Add Item":
             df.to_csv(csv_path, index=False)
             with open(csv_path, "rb") as f:
                 st.download_button(
-                label="Download CSV",
-                data=f,
-                file_name="baby_clothes_inventory.csv",
-                mime="text/csv",
+                    label="Download CSV",
+                    data=f,
+                    file_name="baby_clothes_inventory.csv",
+                    mime="text/csv",
                 )
                 else:
                     st.warning("No data available to export.")
@@ -288,7 +375,11 @@ if menu == "Add Item":
     if uploaded_csv:
         try:
             imported_df = pd.read_csv(uploaded_csv)
-            imported_df.to_sql("baby_clothes", conn, if_exists="append", index=False)
+            imported_df.to_sql(
+                "baby_clothes",
+                conn,
+                if_exists="append",
+                index=False)
             st.success("Data imported successfully!")
         except Exception as e:
             st.error(f"An error occurred: {e}")
@@ -306,7 +397,8 @@ if menu == "Add Item":
 
                     st.subheader("Age Range Distribution")
                     fig, ax = plt.subplots()
-                    df["age_range"].value_counts().plot(kind="pie", ax=ax, autopct="%1.1f%%")
+                    df["age_range"].value_counts().plot(
+                        kind="pie", ax=ax, autopct="%1.1f%%")
                     ax.set_title("Age Range Distribution")
                     st.pyplot(fig)
                     else:
