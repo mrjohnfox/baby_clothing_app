@@ -49,7 +49,7 @@ menu = st.sidebar.radio(
 
 # Helper to display images via GitHub raw URLs
 def show_image_bytes(path: str, caption: str = ""):
-    filename = os.path.basename(path.replace('\', '/').strip())
+    filename = os.path.basename(path.replace('\\', '/').strip())
     url = f"https://raw.githubusercontent.com/mrjohnfox/baby_clothing_app/main/baby_clothes_photos/{filename}"
     try:
         st.image(url, use_container_width=True, caption=caption)
