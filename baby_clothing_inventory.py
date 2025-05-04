@@ -8,24 +8,24 @@ from PIL import Image
 
 # Connect to SQLite database
 db_path = "baby_clothes_inventory.db"
-conn = sqlite3.connect(db_path)
+conn = sqlite3.connect(db_path, check_same_thread=False)
 cursor = conn.cursor()
 
 # Ensure photos directory exists
 photos_dir = "baby_clothes_photos"
-if not os.path.exists(photos_dir):
-    os.makedirs(photos_dir)
+os.makedirs(photos_dir, exist_ok=True)
 
 # Create database table if not exists
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS baby_clothes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    category TEXT,
-    age_range TEXT,
-    photo_path TEXT,
-    description TEXT
-)
-"""
+cursor.execute(
+    """
+    CREATE TABLE IF NOT EXISTS baby_clothes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        category TEXT,
+        age_range TEXT,
+        photo_path TEXT,
+        description TEXT
+    )
+    """
 )
 conn.commit()
 
@@ -33,14 +33,8 @@ conn.commit()
 st.markdown(
     """
     <style>
-    button {
-        font-size: 16px !important;
-        padding: 10px !important;
-    }
-    .streamlit-expander {
-        overflow-y: auto !important;
-        max-height: 300px;
-    }
+    button { font-size:16px !important; padding:10px !important; }
+    .streamlit-expander { overflow-y:auto !important; max-height:300px; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -50,17 +44,26 @@ st.markdown(
 menu = st.sidebar.radio(
     "Menu",
     ["Add Item", "View Inventory", "Search & Edit", "Visualize Data", "Gallery", "Export/Import"],
-    index=0,
+    index=0
 )
 
+# Helper to display images from bytes
+def show_image_bytes(path: str, caption: str = ""):
+    filename = os.path.basename(path.replace('\\', '/').strip())
+    full_path = os.path.join(photos_dir, filename)
+    try:
+        with open(full_path, "rb") as f:
+            img = f.read()
+        st.image(img, use_container_width=True, caption=caption)
+    except Exception as e:
+        st.warning(f"Could not load image: {e}")
+
+# 1. Add Item
 if menu == "Add Item":
     st.title("Add New Baby Clothing Item")
-
-    # Initialize session state for reset
     if "reset_add_item" not in st.session_state:
         st.session_state.reset_add_item = False
-
-    with st.form(key="add_item_form"):
+    with st.form("add_item_form"):
         category = st.radio(
             "Category",
             [
@@ -68,247 +71,149 @@ if menu == "Add Item":
                 "Jumpers", "Accessories", "Shoes", "Sleepwear", "Sets",
                 "Home", "Food Prep", "Dungarees"
             ],
-            key="form_category",
+            key="form_category"
         )
         age_range = st.radio(
             "Age Range",
             [
-                "0–3 months", "3–6 months", "6–9 months", "9–12 months", "12–18 months",
-                "18–24 months", "24–36 months", "3–4 years", "4–5 years", "5–6 years", "No age"
+                "0–3 months", "3–6 months", "6–9 months", "9–12 months",
+                "12–18 months", "18–24 months", "24–36 months",
+                "3–4 years", "4–5 years", "5–6 years", "No age"
             ],
-            key="form_age_range",
+            key="form_age_range"
         )
         description = st.text_area("Description", key="form_description")
-
         st.write("### Upload a Photo")
         uploaded_file = st.file_uploader(
             "Upload Photo", type=["jpg", "png"], key="form_uploaded_file"
         )
+        submit = st.form_submit_button("Add Item")
+        if submit:
+            if not uploaded_file:
+                st.error("Please upload a photo.")
+            else:
+                local_path = os.path.join(photos_dir, uploaded_file.name)
+                with open(local_path, "wb") as f:
+                    f.write(uploaded_file.read())
+                cursor.execute(
+                    "INSERT INTO baby_clothes (category, age_range, photo_path, description) VALUES (?, ?, ?, ?)",
+                    (category, age_range, local_path, description)
+                )
+                conn.commit()
+                st.success("Baby clothing item added successfully!")
+                time.sleep(1)
+                st.session_state.reset_add_item = not st.session_state.reset_add_item
+                st.experimental_rerun()
 
-        submit_button = st.form_submit_button(label="Add Item")
-
-    if submit_button:
-        photo_path = None
-
-        if uploaded_file:
-            photo_path = os.path.join(photos_dir, uploaded_file.name)
-            with open(photo_path, "wb") as f:
-                f.write(uploaded_file.read())
-
-        if photo_path:
-            cursor.execute(
-                """
-                INSERT INTO baby_clothes (category, age_range, photo_path, description)
-                VALUES (?, ?, ?, ?)
-                """,
-                (category, age_range, photo_path, description),
-            )
-            conn.commit()
-            st.success("Baby clothing item added successfully!")
-
-            # Add a delay to show the success message
-            time.sleep(2)  # 2-second delay
-
-            # Force refresh using session state
-            st.session_state.reset_add_item = not st.session_state.reset_add_item
-            st.rerun()  # Refresh the page after the delay
-        else:
-            st.error("Please upload a photo.")
-
+# 2. View Inventory
 elif menu == "View Inventory":
     st.title("View Inventory")
     df = pd.read_sql("SELECT * FROM baby_clothes", conn)
-
-    if not df.empty:
-        categories = df["category"].unique()
-        for category in categories:
-            with st.expander(category):
-                category_items = df[df["category"] == category]
-
-                if len(category_items) >= 3:
-                    col1, col2, col3 = st.columns(3)
-                elif len(category_items) == 2:
-                    col1, col2 = st.columns(2)
-                    col3 = None
-                elif len(category_items) == 1:
-                    col1 = st.container()
-                    col2, col3 = None, None
-                else:
-                    st.write("No items in this category.")
-                    continue
-
-                for idx, row in category_items.iterrows():
-                    if len(category_items) >= 3:
-                        col = [col1, col2, col3][idx % 3]
-                    elif len(category_items) == 2:
-                        col = [col1, col2][idx % 2]
-                    elif len(category_items) == 1:
-                        col = col1
-
-                    with col:
-                        try:
-                            with open(row["photo_path"], "rb") as img_file:
-                                img_bytes = img_file.read()
-                            st.image(img_bytes, use_container_width=True, caption=row["description"])
-                        except Exception as e:
-                            st.warning(f"Could not load image: {e}")
+    if df.empty:
+        st.info("No items in inventory.")
+    else:
+        for cat in df["category"].unique():
+            with st.expander(cat):
+                items = df[df["category"] == cat]
+                cols = st.columns(min(3, len(items)))
+                for idx, row in items.iterrows():
+                    with cols[idx % len(cols)]:
+                        show_image_bytes(row["photo_path"], caption=row["description"])
                         st.write(f"**Age:** {row['age_range']}")
                         st.write(f"**Description:** {row['description']}")
-    else:
-        st.info("No items in inventory.")
 
+# 3. Search & Edit
 elif menu == "Search & Edit":
     st.title("Search & Edit Items")
     df = pd.read_sql("SELECT * FROM baby_clothes", conn)
-
-    if not df.empty:
-        for index, row in df.iterrows():
+    if df.empty:
+        st.info("No items to search or edit.")
+    else:
+        for _, row in df.iterrows():
             with st.expander(f"{row['category']} ({row['age_range']}) - {row['description']}"):
-                if row["photo_path"] and os.path.exists(row["photo_path"]):
-                    try:
-                        with open(row["photo_path"], "rb") as img_file:
-                            st.image(img_file.read(), use_container_width=True)
-                    except Exception as e:
-                        st.warning(f"Could not load image: {e}")
-
+                show_image_bytes(row['photo_path'], caption=row['description'])
                 st.write(f"**Category:** {row['category']}")
                 st.write(f"**Age Range:** {row['age_range']}")
                 st.write(f"**Description:** {row['description']}")
-
-                # ------ EDIT FEATURE ------
-                if st.button(f"Edit Item {row['id']}"):
-                    st.session_state[f"editing_{row['id']}"] = True
-
-                if st.session_state.get(f"editing_{row['id']}", False):
-                    with st.form(key=f"edit_form_{row['id']}"):
-                        new_category = st.selectbox(
-                            "Category",
-                            [
-                                "Bodysuits", "Pants", "Tops", "Dresses", "Jackets", "Knitwear",
-                                "Jumpers", "Accessories", "Shoes", "Sleepwear", "Sets", 
-                                "Home", "Food Prep", "Dungarees"
-                            ],
-                            index=[
-                                "Bodysuits", "Pants", "Tops", "Dresses", "Jackets", "Knitwear",
-                                "Jumpers", "Accessories", "Shoes", "Sleepwear", "Sets", 
-                                "Home", "Food Prep", "Dungarees"
-                            ].index(row["category"])
+                edit_key = f"edit_{row['id']}"
+                if st.button("Edit", key=edit_key):
+                    st.session_state[edit_key] = True
+                if st.session_state.get(edit_key, False):
+                    with st.form(f"edit_form_{row['id']}"):
+                        new_cat = st.selectbox(
+                            "Category", df['category'].unique(),
+                            index=list(df['category']).index(row['category'])
                         )
-                        new_age_range = st.selectbox(
-                            "Age Range",
-                            [
-                                "0–3 months", "3–6 months", "6–9 months", "9–12 months", 
-                                "12–18 months", "18–24 months", "24–36 months", "3–4 years", 
-                                "4–5 years", "5–6 years", "No age"
-                            ],
-                            index=[
-                                "0–3 months", "3–6 months", "6–9 months", "9–12 months", 
-                                "12–18 months", "18–24 months", "24–36 months", "3–4 years", 
-                                "4–5 years", "5–6 years", "No age"
-                            ].index(row["age_range"])
+                        new_age = st.selectbox(
+                            "Age Range", df['age_range'].unique(),
+                            index=list(df['age_range']).index(row['age_range'])
                         )
-                        new_description = st.text_area("Description", row["description"])
-
-                        edit_submit = st.form_submit_button("Submit Changes")
-
-                        if edit_submit:
+                        new_desc = st.text_area("Description", row['description'])
+                        save = st.form_submit_button("Save Changes")
+                        if save:
                             cursor.execute(
-                                """
-                                UPDATE baby_clothes
-                                SET category = ?, age_range = ?, description = ?
-                                WHERE id = ?
-                                """,
-                                (new_category, new_age_range, new_description, row["id"]),
+                                "UPDATE baby_clothes SET category=?, age_range=?, description=? WHERE id=?",
+                                (new_cat, new_age, new_desc, row['id'])
                             )
                             conn.commit()
-                            st.success(f"Item {row['id']} updated successfully!")
-                            
-                            # Delay, then refresh
-                            time.sleep(2)
-                            st.rerun()
-
-                # ------ DELETE FEATURE ------
-                if st.button(f"Delete Item {row['id']}"):
-                    cursor.execute("DELETE FROM baby_clothes WHERE id = ?", (row['id'],))
+                            st.success("Item updated successfully!")
+                            time.sleep(1)
+                            st.experimental_rerun()
+                del_key = f"del_{row['id']}"
+                if st.button("Delete", key=del_key):
+                    cursor.execute("DELETE FROM baby_clothes WHERE id=?", (row['id'],))
                     conn.commit()
-                    st.warning(f"Item {row['id']} deleted successfully!")
+                    st.warning("Item deleted successfully!")
+                    time.sleep(1)
+                    st.experimental_rerun()
 
-                    # Delay, then refresh
-                    time.sleep(2)
-                    st.rerun()
-    else:
-        st.info("No items found in inventory.")
-
-elif menu == "Gallery":
-    st.title("Photo Gallery")
-    df = pd.read_sql("SELECT * FROM baby_clothes", conn)
-
-    if not df.empty:
-        col1, col2, col3 = st.columns(3)
-        for idx, row in df.iterrows():
-            col = [col1, col2, col3][idx % 3]
-            with col:
-                if row["photo_path"] and os.path.exists(row["photo_path"]):
-                    try:
-                        with open(row["photo_path"], "rb") as img_file:
-                            st.image(img_file.read(), use_container_width=True)
-                    except Exception as e:
-                        st.warning(f"Could not load image: {e}")
-                st.caption(f"{row['category']} ({row['age_range']})")
-                st.write(f"{row['description']}")
-    else:
-        st.info("No items in inventory.")
-
-elif menu == "Export/Import":
-    st.title("Export and Import Data")
-
-    st.subheader("Export Inventory")
-    export_button = st.button("Export as CSV")
-    if export_button:
-        df = pd.read_sql("SELECT * FROM baby_clothes", conn)
-        if not df.empty:
-            csv_path = "baby_clothes_inventory.csv"
-            df.to_csv(csv_path, index=False)
-            with open(csv_path, "rb") as f:
-                st.download_button(
-                    label="Download CSV",
-                    data=f,
-                    file_name="baby_clothes_inventory.csv",
-                    mime="text/csv",
-                )
-        else:
-            st.warning("No data available to export.")
-
-    st.subheader("Import Inventory")
-    uploaded_csv = st.file_uploader("Upload a CSV file", type="csv")
-    if uploaded_csv:
-        try:
-            imported_df = pd.read_csv(uploaded_csv)
-            imported_df.to_sql("baby_clothes", conn, if_exists="append", index=False)
-            st.success("Data imported successfully!")
-            print(imported_df.columns)  # debug
-            time.sleep(1)
-            st.rerun()
-        except Exception as e:
-            st.error(f"An error occurred: {e}")
-
+# 4. Visualize Data
 elif menu == "Visualize Data":
     st.title("Visualize Inventory Data")
     df = pd.read_sql("SELECT * FROM baby_clothes", conn)
-
-    if not df.empty:
+    if df.empty:
+        st.info("No data to visualize.")
+    else:
         st.subheader("Number of Items by Category")
         fig, ax = plt.subplots()
-        df["category"].value_counts().plot(kind="bar", ax=ax)
-        ax.set_title("Number of Items by Category")
+        df['category'].value_counts().plot(kind='bar', ax=ax)
         st.pyplot(fig)
-
         st.subheader("Age Range Distribution")
-        fig, ax = plt.subplots()
-        df["age_range"].value_counts().plot(kind="pie", ax=ax, autopct="%1.1f%%")
-        ax.set_title("Age Range Distribution")
-        st.pyplot(fig)
-    else:
-        st.info("No data to visualize.")
+        fig2, ax2 = plt.subplots()
+        df['age_range'].value_counts().plot(kind='pie', ax=ax2, autopct='%1.1f%%')
+        st.pyplot(fig2)
 
+# 5. Gallery
+elif menu == "Gallery":
+    st.title("Photo Gallery")
+    df = pd.read_sql("SELECT * FROM baby_clothes", conn)
+    if df.empty:
+        st.info("No photos available.")
+    else:
+        cols = st.columns(3)
+        for idx, row in df.iterrows():
+            with cols[idx % 3]:
+                show_image_bytes(row['photo_path'], caption=f"{row['category']} ({row['age_range']})")
+                st.write(row['description'])
+
+# 6. Export/Import
+elif menu == "Export/Import":
+    st.title("Export and Import Data")
+    st.subheader("Export Inventory")
+    if st.button("Export as CSV"):
+        df = pd.read_sql("SELECT * FROM baby_clothes", conn)
+        st.download_button("Download Inventory", df.to_csv(index=False), "inventory.csv")
+    st.subheader("Import Inventory")
+    uploaded_csv = st.file_uploader("Upload CSV to import", type="csv")
+    if uploaded_csv:
+        try:
+            imported = pd.read_csv(uploaded_csv)
+            imported.to_sql("baby_clothes", conn, if_exists="append", index=False)
+            st.success("Data imported successfully!")
+            time.sleep(1)
+            st.experimental_rerun()
+        except Exception as e:
+            st.error(f"An error occurred: {e}")
+
+# Close connection
 conn.close()
