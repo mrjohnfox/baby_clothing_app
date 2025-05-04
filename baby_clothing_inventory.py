@@ -101,22 +101,27 @@ if menu == "Add Item":
             "Upload Photo", type=["jpg", "png"], key="form_uploaded_file"
         )
         submit = st.form_submit_button("Add Item")
-        if submit:
-            if not uploaded_file:
-                st.error("Please upload a photo.")
-            else:
-                local_path = os.path.join(photos_dir, uploaded_file.name)
-                with open(local_path, "wb") as f:
-                    f.write(uploaded_file.read())
-                cursor.execute(
-                    "INSERT INTO baby_clothes (category, age_range, photo_path, description) VALUES (?, ?, ?, ?)",
-                    (category, age_range, local_path, description)
-                )
-                conn.commit()
-                st.success("Baby clothing item added successfully!")
-                time.sleep(1)
-                st.session_state.reset_add_item = not st.session_state.reset_add_item
-                st.rerun()
+     if submit:
+         if not uploaded_file:
+             st.error("Please upload a photo.")
+         else:
+             local_path = os.path.join(PHOTOS_DIR, uploaded_file.name)
+             with open(local_path, "wb") as f:
+                 f.write(uploaded_file.read())
+
+             cursor.execute(
+                 "INSERT INTO baby_clothes (category, age_range, photo_path, description) VALUES (?, ?, ?, ?)",
+                 (category, age_range, local_path, description)
+             )
+             conn.commit()
+             st.success("Baby clothing item added successfully!")
+             time.sleep(2)
+             # Clear form widgets so they reset to defaults on rerun
+             for key in ["form_category", "form_age_range", "form_description", "form_uploaded_file"]:
+                 if key in st.session_state:
+                     del st.session_state[key]
+             st.rerun()
+
 
 # 2. View Inventory
 elif menu == "View Inventory":
