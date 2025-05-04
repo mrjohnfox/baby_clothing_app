@@ -143,7 +143,7 @@ elif menu == "View Inventory":
                         col = col1
 
                     with col:
-                        try:
+                            try:
         if row["photo_path"] and os.path.exists(row["photo_path"]):
             image = Image.open(row["photo_path"])
             st.image(image, use_container_width=True, caption=row.get("description", ""))
@@ -164,7 +164,7 @@ elif menu == "Search & Edit":
         for index, row in df.iterrows():
             with st.expander(f"{row['category']} ({row['age_range']}) - {row['description']}"):
                 if row["photo_path"] and os.path.exists(row["photo_path"]):
-                    try:
+                        try:
         if row["photo_path"] and os.path.exists(row["photo_path"]):
             image = Image.open(row["photo_path"])
             st.image(image, use_container_width=True, caption=row.get("description", ""))
@@ -251,7 +251,7 @@ elif menu == "Gallery":
             col = [col1, col2, col3][idx % 3]
             with col:
                 if row["photo_path"] and os.path.exists(row["photo_path"]):
-                    try:
+                        try:
         if row["photo_path"] and os.path.exists(row["photo_path"]):
             image = Image.open(row["photo_path"])
             st.image(image, use_container_width=True, caption=row.get("description", ""))
