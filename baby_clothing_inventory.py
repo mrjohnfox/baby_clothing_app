@@ -13,6 +13,7 @@ cursor = conn.cursor()
 
 # Ensure photos directory exists
 photos_dir = "baby_clothes_photos"
+PHOTOS_DIR = photos_dir
 os.makedirs(photos_dir, exist_ok=True)
 
 # Create database table if not exists
