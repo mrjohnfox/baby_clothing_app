@@ -117,26 +117,22 @@ def show_image_bytes(path: str, caption: str = ""):
     except Exception as e:
         st.warning(f"Could not load image: {e}")
 
-# 1. Add Item Add Item
 if menu == "Add Item":
     st.title("Add New Baby Clothing Item")
 
-    # Toggle to force form reset after submit
     if "reset_add_item" not in st.session_state:
         st.session_state.reset_add_item = False
     form_key = f"add_item_form_{st.session_state.reset_add_item}"
 
-    # Directly render the form (no expander)
     with st.form(key=form_key):
-        # Two‐column layout that stacks on mobile
         cols = st.columns(2)
         with cols[0]:
             category = st.selectbox(
                 "Category",
                 [
-                    "Bodysuits", "Pants", "Tops", "Dresses", "Jackets", "Knitwear",
-                    "Jumpers", "Accessories", "Shoes", "Sleepwear", "Sets",
-                    "Home", "Food Prep", "Dungarees"
+                    "Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
+                    "Jumpers","Accessories","Shoes","Sleepwear","Sets",
+                    "Home","Food Prep","Dungarees"
                 ],
                 key="form_category",
             )
@@ -144,42 +140,48 @@ if menu == "Add Item":
             age_range = st.selectbox(
                 "Age Range",
                 [
-                    "0–3 months", "3–6 months", "6–9 months", "9–12 months",
-                    "12–18 months", "18–24 months", "24–36 months",
-                    "3–4 years", "4–5 years", "5–6 years", "No age"
+                    "0–3 months","3–6 months","6–9 months","9–12 months",
+                    "12–18 months","18–24 months","24–36 months",
+                    "3–4 years","4–5 years","5–6 years","No age"
                 ],
                 key="form_age_range",
             )
 
         description = st.text_area("Description", key="form_description")
 
-        st.write("### Upload a Photo")
-        uploaded_file = st.file_uploader(
-            "Upload Photo", type=["jpg", "png"], key="form_uploaded_file"
-        )
+        st.write("### Upload a Photo or Take One with Your Camera")
+        uploaded_file = st.file_uploader("Upload Photo", type=["jpg","png"], key="form_uploaded_file")
+        camera_file = st.camera_input("Take a Photo")
 
         submit = st.form_submit_button("Add Item")
 
-    # Handle submission
     if submit:
-        if not uploaded_file:
-            st.error("Please upload a photo.")
+        photo_data = None
+        filename = None
+
+        if camera_file is not None:
+            photo_data = camera_file.getvalue()
+            filename = f"{int(time.time() * 1000)}.jpg"
+        elif uploaded_file is not None:
+            photo_data = uploaded_file.read()
+            filename = uploaded_file.name
         else:
-            local_path = os.path.join(photos_dir, uploaded_file.name)
-            with open(local_path, "wb") as f:
-                f.write(uploaded_file.read())
+            st.error("Please upload or take a photo.")
+            return
 
-            cursor.execute(
-                "INSERT INTO baby_clothes (category, age_range, photo_path, description) VALUES (?, ?, ?, ?)",
-                (category, age_range, local_path, description),
-            )
-            conn.commit()
-            st.success("Baby clothing item added successfully!")
-            time.sleep(2)
+        local_path = os.path.join(photos_dir, filename)
+        with open(local_path, "wb") as f:
+            f.write(photo_data)
 
-            # Reset form on next render
-            st.session_state.reset_add_item = not st.session_state.reset_add_item
-            st.rerun()
+        cursor.execute(
+            "INSERT INTO baby_clothes (category, age_range, photo_path, description) VALUES (?, ?, ?, ?)",
+            (category, age_range, local_path, description),
+        )
+        conn.commit()
+        st.success("Baby clothing item added successfully!")
+        time.sleep(2)
+        st.session_state.reset_add_item = not st.session_state.reset_add_item
+        st.rerun()
 
 # ← Now you’re back at the top level for `elif menu == …`
 elif menu == "View Inventory":
