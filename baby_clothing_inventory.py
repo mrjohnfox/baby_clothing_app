@@ -1,3 +1,34 @@
+# At the top of your script, initialize the collapse flag
+if "menu_collapsed" not in st.session_state:
+    st.session_state.menu_collapsed = False
+
+# In your sidebar, wrap the radio inside an expander…
+with st.sidebar.expander("Menu", expanded=not st.session_state.menu_collapsed):
+    menu = st.radio(
+        "Navigate to",
+        [
+            "Add Item",
+            "View Inventory",
+            "Search & Manage",
+            "Visualize Data",
+            "Gallery",
+            "Export/Import",
+        ],
+        index=0,
+        key="sidebar_menu",
+    )
+
+# Immediately collapse the expander once a choice is made
+if st.session_state.get("sidebar_menu") is not None:
+    st.session_state.menu_collapsed = True
+
+# Then dispatch on menu
+if menu == "Add Item":
+    …
+elif menu == "View Inventory":
+    …
+# etc.
+
 from streamlit_back_camera_input import back_camera_input
 import streamlit as st
 import sqlite3
