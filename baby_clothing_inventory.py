@@ -143,23 +143,17 @@ elif menu == "View Inventory":
                         col = col1
 
                     with col:
-                            try:
+    try:
 
-                                photo_path = row["photo_path"].strip()
+        filename = os.path.basename(row["photo_path"].strip())
 
-                                if photo_path and os.path.exists(photo_path):
+        github_image_url = f"https://raw.githubusercontent.com/mrjohnfox/baby_clothing_app/main/baby_clothes_photos/{filename}"
 
-                                    image = Image.open(photo_path)
+        st.image(github_image_url, use_container_width=True, caption=row.get("description", ""))
 
-                                    st.image(image, use_container_width=True, caption=row.get("description", ""))
+    except Exception as e:
 
-                                else:
-
-                                    st.warning("Image not found.")
-
-                            except Exception as e:
-
-                                st.warning(f"Could not load image: {e}")
+        st.warning(f"Could not load image: {e}")
 
 elif menu == "Search & Edit":
     st.title("Search & Edit Items")
@@ -169,23 +163,17 @@ elif menu == "Search & Edit":
         for index, row in df.iterrows():
             with st.expander(f"{row['category']} ({row['age_range']}) - {row['description']}"):
                 if row["photo_path"] and os.path.exists(row["photo_path"]):
-                        try:
+    try:
 
-                            photo_path = row["photo_path"].strip()
+        filename = os.path.basename(row["photo_path"].strip())
 
-                            if photo_path and os.path.exists(photo_path):
+        github_image_url = f"https://raw.githubusercontent.com/mrjohnfox/baby_clothing_app/main/baby_clothes_photos/{filename}"
 
-                                image = Image.open(photo_path)
+        st.image(github_image_url, use_container_width=True, caption=row.get("description", ""))
 
-                                st.image(image, use_container_width=True, caption=row.get("description", ""))
+    except Exception as e:
 
-                            else:
-
-                                st.warning("Image not found.")
-
-                        except Exception as e:
-
-                            st.warning(f"Could not load image: {e}")
+        st.warning(f"Could not load image: {e}")
 
                 st.write(f"**Category:** {row['category']}")
                 st.write(f"**Age Range:** {row['age_range']}")
@@ -265,23 +253,17 @@ elif menu == "Gallery":
             col = [col1, col2, col3][idx % 3]
             with col:
                 if row["photo_path"] and os.path.exists(row["photo_path"]):
-                        try:
+    try:
 
-                            photo_path = row["photo_path"].strip()
+        filename = os.path.basename(row["photo_path"].strip())
 
-                            if photo_path and os.path.exists(photo_path):
+        github_image_url = f"https://raw.githubusercontent.com/mrjohnfox/baby_clothing_app/main/baby_clothes_photos/{filename}"
 
-                                image = Image.open(photo_path)
+        st.image(github_image_url, use_container_width=True, caption=row.get("description", ""))
 
-                                st.image(image, use_container_width=True, caption=row.get("description", ""))
+    except Exception as e:
 
-                            else:
-
-                                st.warning("Image not found.")
-
-                        except Exception as e:
-
-                            st.warning(f"Could not load image: {e}")
+        st.warning(f"Could not load image: {e}")
 
 elif menu == "Export/Import":
     st.title("Export and Import Data")
@@ -306,11 +288,11 @@ elif menu == "Export/Import":
     st.subheader("Import Inventory")
     uploaded_csv = st.file_uploader("Upload a CSV file", type="csv")
     if uploaded_csv:
-        try:
+    try:
             imported_df = pd.read_csv(uploaded_csv)
             imported_df.to_sql("baby_clothes", conn, if_exists="append", index=False)
             st.success("Data imported successfully!")
-        except Exception as e:
+    except Exception as e:
             st.error(f"An error occurred: {e}")
 
 elif menu == "Visualize Data":
@@ -329,7 +311,7 @@ elif menu == "Visualize Data":
         df["age_range"].value_counts().plot(kind="pie", ax=ax, autopct="%1.1f%%")
         ax.set_title("Age Range Distribution")
         st.pyplot(fig)
-    else:
+        else:
         st.info("No data to visualize.")
 
 conn.close()
