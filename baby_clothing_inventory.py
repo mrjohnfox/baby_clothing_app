@@ -100,25 +100,13 @@ from PIL import Image as PILImage
 
 @st.cache_data
 def load_and_prepare_image(path: str) -> bytes:
-    from io import BytesIO
-    from PIL import Image as PILImage
-
-    # Normalize and build full path
-    filename = os.path.basename(path.replace("\\", "/").strip())
+    filename = os.path.basename(path.replace('\\', '/').strip())
     full_path = os.path.join(photos_dir, filename)
-
-    # Open and convert to RGB if needed
     img = PILImage.open(full_path)
-    if img.mode != "RGB":
-        img = img.convert("RGB")
-
-    # Resize to max width 400px
     max_w = 400
     if img.width > max_w:
         ratio = max_w / img.width
         img = img.resize((max_w, int(img.height * ratio)), PILImage.LANCZOS)
-
-    # Save as JPEG into bytes
     buf = BytesIO()
     img.save(buf, format="JPEG", quality=85)
     return buf.getvalue()
@@ -130,19 +118,11 @@ def show_image_bytes(path: str, caption: str = ""):
     except Exception as e:
         st.warning(f"Could not load image: {e}")
 
-# 1. Add Item
+# 1. Add Item Add Item
 if menu == "Add Item":
     st.title("Add New Baby Clothing Item")
 
-    # 1) Show the camera button first (rear if available)
-    try:
-        camera_file = back_camera_input("📷 Take a Photo (rear)")
-    except Exception:
-        camera_file = st.camera_input("📷 Take a Photo")
-
-    st.write("---")  # separator
-
-    # 2) Then your normal form (only handles category, age, desc, upload, submit)
+    # Toggle to force form reset after submit
     if "reset_add_item" not in st.session_state:
         st.session_state.reset_add_item = False
     form_key = f"add_item_form_{st.session_state.reset_add_item}"
@@ -150,21 +130,41 @@ if menu == "Add Item":
     with st.form(key=form_key):
         cols = st.columns(2)
         with cols[0]:
-            category = st.selectbox("Category", CATEGORIES, key="form_category")
+            category = st.selectbox(
+                "Category",
+                [
+                    "Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
+                    "Jumpers","Accessories","Shoes","Sleepwear","Sets",
+                    "Home","Food Prep","Dungarees"
+                ],
+                key="form_category",
+            )
         with cols[1]:
-            age_range = st.selectbox("Age Range", AGE_RANGES, key="form_age_range")
+            age_range = st.selectbox(
+                "Age Range",
+                [
+                    "0–3 months","3–6 months","6–9 months","9–12 months",
+                    "12–18 months","18–24 months","24–36 months",
+                    "3–4 years","4–5 years","5–6 years","No age"
+                ],
+                key="form_age_range",
+            )
 
         description = st.text_area("Description", key="form_description")
-        st.write("### Or upload from gallery")
-        uploaded_file = st.file_uploader("Upload Photo", type=["jpg","png"], key="form_uploaded_file")
+
+        st.write("### Upload a Photo or Take One with Your Camera")
+        uploaded_file = st.file_uploader(
+            "Upload Photo", type=["jpg", "png"], key="form_uploaded_file"
+        )
+        camera_file = st.camera_input("Take a Photo")
 
         submit = st.form_submit_button("Add Item")
 
         if submit:
-            # pick the camera snapshot first
+            # pick the camera snapshot first, otherwise file upload
             if camera_file is not None:
                 photo_data = camera_file.getvalue()
-                filename   = f"{int(time.time()*1000)}.jpg"
+                filename   = f"{int(time.time() * 1000)}.jpg"
             elif uploaded_file is not None:
                 photo_data = uploaded_file.read()
                 filename   = uploaded_file.name
@@ -172,20 +172,26 @@ if menu == "Add Item":
                 st.error("Please upload or take a photo.")
                 st.stop()
 
-            # save to disk and insert into DB...
+            # save image
             local_path = os.path.join(photos_dir, filename)
             with open(local_path, "wb") as f:
                 f.write(photo_data)
 
+            # insert into DB
             cursor.execute(
-                "INSERT INTO baby_clothes (category, age_range, photo_path, description) VALUES (?,?,?,?)",
+                "INSERT INTO baby_clothes (category, age_range, photo_path, description)"
+                " VALUES (?, ?, ?, ?)",
                 (category, age_range, local_path, description),
             )
             conn.commit()
-            st.success("Item added!")
+
+            st.success("Baby clothing item added successfully!")
             time.sleep(2)
+
+            # clear and rerun
             st.session_state.reset_add_item = not st.session_state.reset_add_item
             st.rerun()
+
 
 # ← Now you’re back at the top level for `elif menu == …`
 elif menu == "View Inventory":
