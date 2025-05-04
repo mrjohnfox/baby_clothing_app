@@ -134,28 +134,25 @@ def show_image_bytes(path: str, caption: str = ""):
 if menu == "Add Item":
     st.title("Add New Baby Clothing Item")
 
-    # 1) Always show camera widget (rear‐facing if available)
+    # 1) Show the camera button first (rear if available)
     try:
-        camera_file = back_camera_input("Take a Photo (rear)")
+        camera_file = back_camera_input("📷 Take a Photo (rear)")
     except Exception:
-        camera_file = st.camera_input("Take a Photo")
+        camera_file = st.camera_input("📷 Take a Photo")
 
-    st.write("— or —")
+    st.write("---")  # separator
 
-    # 2) Now the form for the rest of the fields
+    # 2) Then your normal form (only handles category, age, desc, upload, submit)
     if "reset_add_item" not in st.session_state:
         st.session_state.reset_add_item = False
     form_key = f"add_item_form_{st.session_state.reset_add_item}"
+
     with st.form(key=form_key):
         cols = st.columns(2)
         with cols[0]:
-            category = st.selectbox(
-                "Category", [...], key="form_category"
-            )
+            category = st.selectbox("Category", CATEGORIES, key="form_category")
         with cols[1]:
-            age_range = st.selectbox(
-                "Age Range", [...], key="form_age_range"
-            )
+            age_range = st.selectbox("Age Range", AGE_RANGES, key="form_age_range")
 
         description = st.text_area("Description", key="form_description")
         st.write("### Or upload from gallery")
@@ -164,7 +161,7 @@ if menu == "Add Item":
         submit = st.form_submit_button("Add Item")
 
         if submit:
-            # pick camera capture first
+            # pick the camera snapshot first
             if camera_file is not None:
                 photo_data = camera_file.getvalue()
                 filename   = f"{int(time.time()*1000)}.jpg"
@@ -175,7 +172,7 @@ if menu == "Add Item":
                 st.error("Please upload or take a photo.")
                 st.stop()
 
-            # save and insert
+            # save to disk and insert into DB...
             local_path = os.path.join(photos_dir, filename)
             with open(local_path, "wb") as f:
                 f.write(photo_data)
