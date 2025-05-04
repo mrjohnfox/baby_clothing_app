@@ -151,10 +151,6 @@ elif menu == "View Inventory":
         st.warning("Image not found.")
 except Exception as e:
     st.warning(f"Could not load image: {e}")
-                        st.write(f"**Age:** {row['age_range']}")
-                        st.write(f"**Description:** {row['description']}")
-    else:
-        st.info("No items in inventory.")
 
 elif menu == "Search & Edit":
     st.title("Search & Edit Items")
@@ -259,10 +255,6 @@ elif menu == "Gallery":
         st.warning("Image not found.")
 except Exception as e:
     st.warning(f"Could not load image: {e}")
-                st.caption(f"{row['category']} ({row['age_range']})")
-                st.write(f"{row['description']}")
-    else:
-        st.info("No items in inventory.")
 
 elif menu == "Export/Import":
     st.title("Export and Import Data")
