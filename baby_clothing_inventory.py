@@ -152,7 +152,8 @@ if menu == "Add Item":
 
         st.write("### Upload a Photo or Take One with Your Camera")
         uploaded_file = st.file_uploader("Upload Photo", type=["jpg","png"], key="form_uploaded_file")
-        camera_file = st.camera_input("Take a Photo")
+        from streamlit_back_camera_input import back_camera_inpu
+        camera_file = back_camera_input("Take a Photo")
 
         submit = st.form_submit_button("Add Item")
 
