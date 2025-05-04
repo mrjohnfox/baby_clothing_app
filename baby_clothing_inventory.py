@@ -85,8 +85,7 @@ menu = st.sidebar.radio(
     [
         "Add Item",
         "View Inventory",
-        "Search & Filter",
-        "Search & Edit",
+        "Search & Manage",
         "Visualize Data",
         "Gallery",
         "Export/Import",
@@ -186,22 +185,23 @@ elif menu == "View Inventory":
                         show_image_bytes(row["photo_path"], caption=row["description"])
                         st.write(f"**Age:** {row['age_range']}")
                         st.write(f"**Description:** {row['description']}")
-# Search & Filter
-elif menu == "Search & Filter":
-    st.title("Search & Filter Inventory")
+
+# 3. Search & Manage
+if menu == "Search & Manage":
+    st.title("Search & Manage Inventory")
     df = pd.read_sql("SELECT * FROM baby_clothes", conn)
     if df.empty:
-        st.info("No items in inventory.")
+        st.info("No items to manage.")
     else:
         cat_sel = st.multiselect(
             "Category",
             options=sorted(df["category"].unique()),
-            default=list(df["category"].unique()),
+            default=sorted(df["category"].unique()),
         )
         age_sel = st.multiselect(
             "Age Range",
             options=sorted(df["age_range"].unique()),
-            default=list(df["age_range"].unique()),
+            default=sorted(df["age_range"].unique()),
         )
         text_query = st.text_input("Search Description…")
 
@@ -216,65 +216,66 @@ elif menu == "Search & Filter":
         if filtered.empty:
             st.warning("No items match those filters.")
         else:
-            for cat in filtered["category"].unique():
-                with st.expander(cat, expanded=True):
-                    items = filtered[filtered["category"] == cat]
-                    if len(items) >= 3:
-                        cols = st.columns(3)
-                    elif len(items) == 2:
-                        cols = st.columns(2)
-                    else:
-                        cols = [st.container()]
-                    for idx, row in items.iterrows():
-                        col = cols[idx % len(cols)]
-                        with col:
-                            show_image_bytes(row["photo_path"], row["description"])
-                            st.write(f"**Age:** {row['age_range']}")
-                            st.write(f"**Description:** {row['description']}")
-# 3. Search & Edit
-elif menu == "Search & Edit":
-    st.title("Search & Edit Items")
-    df = pd.read_sql("SELECT * FROM baby_clothes", conn)
-    if df.empty:
-        st.info("No items to search or edit.")
-    else:
-        for _, row in df.iterrows():
-            with st.expander(f"{row['category']} ({row['age_range']}) - {row['description']}"):
-                show_image_bytes(row['photo_path'], caption=row['description'])
-                st.write(f"**Category:** {row['category']}")
-                st.write(f"**Age Range:** {row['age_range']}")
-                st.write(f"**Description:** {row['description']}")
-                edit_key = f"edit_{row['id']}"
-                if st.button("Edit", key=edit_key):
-                    st.session_state[edit_key] = True
-                if st.session_state.get(edit_key, False):
-                    with st.form(f"edit_form_{row['id']}"):
-                        new_cat = st.selectbox(
-                            "Category", df['category'].unique(),
-                            index=list(df['category']).index(row['category'])
-                        )
-                        new_age = st.selectbox(
-                            "Age Range", df['age_range'].unique(),
-                            index=list(df['age_range']).index(row['age_range'])
-                        )
-                        new_desc = st.text_area("Description", row['description'])
-                        save = st.form_submit_button("Save Changes")
-                        if save:
-                            cursor.execute(
-                                "UPDATE baby_clothes SET category=?, age_range=?, description=? WHERE id=?",
-                                (new_cat, new_age, new_desc, row['id'])
+            for _, row in filtered.iterrows():
+                with st.expander(f"{row['category']} ({row['age_range']}) - {row['description']}"):
+                    show_image_bytes(row["photo_path"], row["description"])
+                    st.write(f"**Category:** {row['category']}")
+                    st.write(f"**Age Range:** {row['age_range']}")
+                    st.write(f"**Description:** {row['description']}")
+
+                    edit_key = f"edit_{row['id']}"
+                    if st.button(f"Edit Item {row['id']}", key=edit_key):
+                        st.session_state[edit_key] = True
+                    if st.session_state.get(edit_key, False):
+                        with st.form(key=f"edit_form_{row['id']}"):
+                            new_category = st.selectbox(
+                                "Category",
+                                [
+                                    "Bodysuits", "Pants", "Tops", "Dresses", "Jackets", "Knitwear",
+                                    "Jumpers", "Accessories", "Shoes", "Sleepwear", "Sets", 
+                                    "Home", "Food Prep", "Dungarees"
+                                ],
+                                index=[
+                                    "Bodysuits", "Pants", "Tops", "Dresses", "Jackets", "Knitwear",
+                                    "Jumpers", "Accessories", "Shoes", "Sleepwear", "Sets", 
+                                    "Home", "Food Prep", "Dungarees"
+                                ].index(row["category"]),
                             )
-                            conn.commit()
-                            st.success("Item updated successfully!")
-                            time.sleep(1)
-                            st.rerun()
-                del_key = f"del_{row['id']}"
-                if st.button("Delete", key=del_key):
-                    cursor.execute("DELETE FROM baby_clothes WHERE id=?", (row['id'],))
-                    conn.commit()
-                    st.warning("Item deleted successfully!")
-                    time.sleep(1)
-                    st.rerun()
+                            new_age_range = st.selectbox(
+                                "Age Range",
+                                [
+                                    "0–3 months", "3–6 months", "6–9 months", "9–12 months", 
+                                    "12–18 months", "18–24 months", "24–36 months", "3–4 years", 
+                                    "4–5 years", "5–6 years", "No age"
+                                ],
+                                index=[
+                                    "0–3 months", "3–6 months", "6–9 months", "9–12 months", 
+                                    "12–18 months", "18–24 months", "24–36 months", "3–4 years", 
+                                    "4–5 years", "5–6 years", "No age"
+                                ].index(row["age_range"]),
+                            )
+                            new_description = st.text_area("Description", row["description"])
+                            if st.form_submit_button("Save Changes"):
+                                cursor.execute(
+                                    """
+                                    UPDATE baby_clothes
+                                    SET category = ?, age_range = ?, description = ?
+                                    WHERE id = ?
+                                    """,
+                                    (new_category, new_age_range, new_description, row["id"]),
+                                )
+                                conn.commit()
+                                st.success("Item updated successfully!")
+                                time.sleep(2)
+                                st.rerun()
+
+                    delete_key = f"delete_{row['id']}"
+                    if st.button(f"Delete Item {row['id']}", key=delete_key):
+                        cursor.execute("DELETE FROM baby_clothes WHERE id = ?", (row["id"],))
+                        conn.commit()
+                        st.warning("Item deleted successfully!")
+                        time.sleep(2)
+                        st.rerun()
 
 # 4. Visualize Data
 elif menu == "Visualize Data":
