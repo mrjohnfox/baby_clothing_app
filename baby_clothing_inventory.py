@@ -47,18 +47,16 @@ menu = st.sidebar.radio(
     index=0
 )
 
-# Helper to display images from bytes
+# Helper to display images via GitHub raw URLs
 def show_image_bytes(path: str, caption: str = ""):
-    filename = os.path.basename(path.replace('\\', '/').strip())
-    full_path = os.path.join(photos_dir, filename)
+    filename = os.path.basename(path.replace('\', '/').strip())
+    url = f"https://raw.githubusercontent.com/mrjohnfox/baby_clothing_app/main/baby_clothes_photos/{filename}"
     try:
-        with open(full_path, "rb") as f:
-            img = f.read()
-        st.image(img, use_container_width=True, caption=caption)
+        st.image(url, use_container_width=True, caption=caption)
     except Exception as e:
         st.warning(f"Could not load image: {e}")
 
-# 1. Add Item
+# 1. Add Item Add Item
 if menu == "Add Item":
     st.title("Add New Baby Clothing Item")
     if "reset_add_item" not in st.session_state:
