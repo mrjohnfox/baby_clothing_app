@@ -142,7 +142,7 @@ elif menu == "View Inventory":
                     elif len(category_items) == 1:
                         col = col1
 
-                    with col:
+            with col:
                         try:
 
                             filename = os.path.basename(row["photo_path"].strip())
@@ -250,7 +250,7 @@ elif menu == "Gallery":
         col1, col2, col3 = st.columns(3)
         for idx, row in df.iterrows():
             col = [col1, col2, col3][idx % 3]
-                    with col:
+            with col:
                         try:
 
                             filename = os.path.basename(row["photo_path"].strip())
