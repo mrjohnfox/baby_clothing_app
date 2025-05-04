@@ -4,6 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 import time  # <-- Ensure we have time imported for delays
+from PIL import Image
 
 # Connect to SQLite database
 db_path = "baby_clothes_inventory.db"
@@ -142,7 +143,14 @@ elif menu == "View Inventory":
                         col = col1
 
                     with col:
-                        st.image(row["photo_path"], use_container_width=True, caption=row["description"])
+                        try:
+        if row["photo_path"] and os.path.exists(row["photo_path"]):
+            image = Image.open(row["photo_path"])
+            st.image(image, use_container_width=True, caption=row.get("description", ""))
+        else:
+            st.warning("Image not found.")
+    except Exception as e:
+        st.warning(f"Could not load image: {e}")
                         st.write(f"**Age:** {row['age_range']}")
                         st.write(f"**Description:** {row['description']}")
     else:
@@ -156,7 +164,14 @@ elif menu == "Search & Edit":
         for index, row in df.iterrows():
             with st.expander(f"{row['category']} ({row['age_range']}) - {row['description']}"):
                 if row["photo_path"] and os.path.exists(row["photo_path"]):
-                    st.image(row["photo_path"], use_container_width=True)
+                    try:
+        if row["photo_path"] and os.path.exists(row["photo_path"]):
+            image = Image.open(row["photo_path"])
+            st.image(image, use_container_width=True, caption=row.get("description", ""))
+        else:
+            st.warning("Image not found.")
+    except Exception as e:
+        st.warning(f"Could not load image: {e}")
 
                 st.write(f"**Category:** {row['category']}")
                 st.write(f"**Age Range:** {row['age_range']}")
@@ -236,7 +251,14 @@ elif menu == "Gallery":
             col = [col1, col2, col3][idx % 3]
             with col:
                 if row["photo_path"] and os.path.exists(row["photo_path"]):
-                    st.image(row["photo_path"], use_container_width=True)
+                    try:
+        if row["photo_path"] and os.path.exists(row["photo_path"]):
+            image = Image.open(row["photo_path"])
+            st.image(image, use_container_width=True, caption=row.get("description", ""))
+        else:
+            st.warning("Image not found.")
+    except Exception as e:
+        st.warning(f"Could not load image: {e}")
                 st.caption(f"{row['category']} ({row['age_range']})")
                 st.write(f"{row['description']}")
     else:
