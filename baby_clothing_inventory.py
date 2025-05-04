@@ -116,7 +116,7 @@ if menu == "Add Item":
                 st.success("Baby clothing item added successfully!")
                 time.sleep(1)
                 st.session_state.reset_add_item = not st.session_state.reset_add_item
-                st.experimental_rerun()
+                st.rerun()
 
 # 2. View Inventory
 elif menu == "View Inventory":
@@ -171,14 +171,14 @@ elif menu == "Search & Edit":
                             conn.commit()
                             st.success("Item updated successfully!")
                             time.sleep(1)
-                            st.experimental_rerun()
+                            st.rerun()
                 del_key = f"del_{row['id']}"
                 if st.button("Delete", key=del_key):
                     cursor.execute("DELETE FROM baby_clothes WHERE id=?", (row['id'],))
                     conn.commit()
                     st.warning("Item deleted successfully!")
                     time.sleep(1)
-                    st.experimental_rerun()
+                    st.rerun()
 
 # 4. Visualize Data
 elif menu == "Visualize Data":
@@ -224,7 +224,7 @@ elif menu == "Export/Import":
             imported.to_sql("baby_clothes", conn, if_exists="append", index=False)
             st.success("Data imported successfully!")
             time.sleep(1)
-            st.experimental_rerun()
+            st.rerun()
         except Exception as e:
             st.error(f"An error occurred: {e}")
 
