@@ -145,9 +145,11 @@ elif menu == "View Inventory":
                     with col:
                             try:
 
-                                if row["photo_path"] and os.path.exists(row["photo_path"]):
+                                photo_path = row["photo_path"].strip()
 
-                                    image = Image.open(row["photo_path"])
+                                if photo_path and os.path.exists(photo_path):
+
+                                    image = Image.open(photo_path)
 
                                     st.image(image, use_container_width=True, caption=row.get("description", ""))
 
@@ -169,9 +171,11 @@ elif menu == "Search & Edit":
                 if row["photo_path"] and os.path.exists(row["photo_path"]):
                         try:
 
-                            if row["photo_path"] and os.path.exists(row["photo_path"]):
+                            photo_path = row["photo_path"].strip()
 
-                                image = Image.open(row["photo_path"])
+                            if photo_path and os.path.exists(photo_path):
+
+                                image = Image.open(photo_path)
 
                                 st.image(image, use_container_width=True, caption=row.get("description", ""))
 
@@ -263,9 +267,11 @@ elif menu == "Gallery":
                 if row["photo_path"] and os.path.exists(row["photo_path"]):
                         try:
 
-                            if row["photo_path"] and os.path.exists(row["photo_path"]):
+                            photo_path = row["photo_path"].strip()
 
-                                image = Image.open(row["photo_path"])
+                            if photo_path and os.path.exists(photo_path):
+
+                                image = Image.open(photo_path)
 
                                 st.image(image, use_container_width=True, caption=row.get("description", ""))
 
