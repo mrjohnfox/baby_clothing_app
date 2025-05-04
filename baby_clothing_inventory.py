@@ -101,7 +101,7 @@ if menu == "Add Item":
             "Upload Photo", type=["jpg", "png"], key="form_uploaded_file"
         )
         submit = st.form_submit_button("Add Item")
-     if submit:
+        if submit:
          if not uploaded_file:
              st.error("Please upload a photo.")
          else:
