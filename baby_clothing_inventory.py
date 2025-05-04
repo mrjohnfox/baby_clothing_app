@@ -3,7 +3,8 @@ import sqlite3
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
-import time  # <-- Ensure we have time imported for delays
+import time
+from PIL import Image
 
 # Connect to SQLite database
 db_path = "baby_clothes_inventory.db"
@@ -24,7 +25,8 @@ CREATE TABLE IF NOT EXISTS baby_clothes (
     photo_path TEXT,
     description TEXT
 )
-""")
+"""
+)
 conn.commit()
 
 # CSS for Mobile Optimizations and Scrollable Dropdowns
@@ -37,7 +39,7 @@ st.markdown(
     }
     .streamlit-expander {
         overflow-y: auto !important;
-        max-height: 300px; /* Adjust dropdown max height */
+        max-height: 300px;
     }
     </style>
     """,
@@ -48,7 +50,7 @@ st.markdown(
 menu = st.sidebar.radio(
     "Menu",
     ["Add Item", "View Inventory", "Search & Edit", "Visualize Data", "Gallery", "Export/Import"],
-    index=0,  # Default to Add Item page
+    index=0,
 )
 
 if menu == "Add Item":
@@ -63,23 +65,25 @@ if menu == "Add Item":
             "Category",
             [
                 "Bodysuits", "Pants", "Tops", "Dresses", "Jackets", "Knitwear",
-                "Jumpers", "Accessories", "Shoes", "Sleepwear", "Sets", 
+                "Jumpers", "Accessories", "Shoes", "Sleepwear", "Sets",
                 "Home", "Food Prep", "Dungarees"
             ],
-            key="form_category" if st.session_state.reset_add_item else "category",
+            key="form_category",
         )
         age_range = st.radio(
             "Age Range",
             [
-                "0–3 months", "3–6 months", "6–9 months", "9–12 months", "12–18 months", 
+                "0–3 months", "3–6 months", "6–9 months", "9–12 months", "12–18 months",
                 "18–24 months", "24–36 months", "3–4 years", "4–5 years", "5–6 years", "No age"
             ],
-            key="form_age_range" if st.session_state.reset_add_item else "age_range",
+            key="form_age_range",
         )
-        description = st.text_area("Description", key="form_description" if st.session_state.reset_add_item else "description")
+        description = st.text_area("Description", key="form_description")
 
         st.write("### Upload a Photo")
-        uploaded_file = st.file_uploader("Upload Photo", type=["jpg", "png"], key="form_uploaded_file" if st.session_state.reset_add_item else "uploaded_file")
+        uploaded_file = st.file_uploader(
+            "Upload Photo", type=["jpg", "png"], key="form_uploaded_file"
+        )
 
         submit_button = st.form_submit_button(label="Add Item")
 
@@ -142,7 +146,12 @@ elif menu == "View Inventory":
                         col = col1
 
                     with col:
-                        st.image(row["photo_path"], use_container_width=True, caption=row["description"])
+                        try:
+                            with open(row["photo_path"], "rb") as img_file:
+                                img_bytes = img_file.read()
+                            st.image(img_bytes, use_container_width=True, caption=row["description"])
+                        except Exception as e:
+                            st.warning(f"Could not load image: {e}")
                         st.write(f"**Age:** {row['age_range']}")
                         st.write(f"**Description:** {row['description']}")
     else:
@@ -156,7 +165,11 @@ elif menu == "Search & Edit":
         for index, row in df.iterrows():
             with st.expander(f"{row['category']} ({row['age_range']}) - {row['description']}"):
                 if row["photo_path"] and os.path.exists(row["photo_path"]):
-                    st.image(row["photo_path"], use_container_width=True)
+                    try:
+                        with open(row["photo_path"], "rb") as img_file:
+                            st.image(img_file.read(), use_container_width=True)
+                    except Exception as e:
+                        st.warning(f"Could not load image: {e}")
 
                 st.write(f"**Category:** {row['category']}")
                 st.write(f"**Age Range:** {row['age_range']}")
@@ -216,7 +229,7 @@ elif menu == "Search & Edit":
 
                 # ------ DELETE FEATURE ------
                 if st.button(f"Delete Item {row['id']}"):
-                    cursor.execute("DELETE FROM baby_clothes WHERE id = ?", (row["id"],))
+                    cursor.execute("DELETE FROM baby_clothes WHERE id = ?", (row['id'],))
                     conn.commit()
                     st.warning(f"Item {row['id']} deleted successfully!")
 
@@ -236,7 +249,11 @@ elif menu == "Gallery":
             col = [col1, col2, col3][idx % 3]
             with col:
                 if row["photo_path"] and os.path.exists(row["photo_path"]):
-                    st.image(row["photo_path"], use_container_width=True)
+                    try:
+                        with open(row["photo_path"], "rb") as img_file:
+                            st.image(img_file.read(), use_container_width=True)
+                    except Exception as e:
+                        st.warning(f"Could not load image: {e}")
                 st.caption(f"{row['category']} ({row['age_range']})")
                 st.write(f"{row['description']}")
     else:
@@ -269,6 +286,9 @@ elif menu == "Export/Import":
             imported_df = pd.read_csv(uploaded_csv)
             imported_df.to_sql("baby_clothes", conn, if_exists="append", index=False)
             st.success("Data imported successfully!")
+            print(imported_df.columns)  # debug
+            time.sleep(1)
+            st.rerun()
         except Exception as e:
             st.error(f"An error occurred: {e}")
 
