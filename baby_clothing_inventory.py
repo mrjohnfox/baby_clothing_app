@@ -98,27 +98,6 @@ menu = st.sidebar.radio(
 from io import BytesIO
 from PIL import Image as PILImage
 
-# 3) Define categories and suggestion helper
-CATEGORIES = [
-    "Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
-    "Jumpers","Accessories","Shoes","Sleepwear","Sets",
-    "Home","Food Prep","Dungarees"
-]
-AGE_RANGES = [
-    "0–3 months","3–6 months","6–9 months","9–12 months","12–18 months",
-    "18–24 months","24–36 months","3–4 years","4–5 years","5–6 years","No age"
-]
-
-def suggest_category(image_bytes: bytes) -> str:
-    img = PILImage.open(BytesIO(image_bytes)).convert("RGB")
-    preds = classifier(img, top_k=5)
-    for p in preds:
-        label = p["label"].lower()
-        for cat in CATEGORIES:
-            if cat.lower() in label:
-                return cat
-    return CATEGORIES[0]
-
 @st.cache_data
 def load_and_prepare_image(path: str) -> bytes:
     filename = os.path.basename(path.replace('\\', '/').strip())
