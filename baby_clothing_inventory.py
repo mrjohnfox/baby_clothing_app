@@ -48,11 +48,26 @@ menu = st.sidebar.radio(
 )
 
 # Helper to display images via GitHub raw URLs
-def show_image_bytes(path: str, caption: str = ""):
+from io import BytesIO
+from PIL import Image as PILImage
+
+@st.cache_data
+def load_and_prepare_image(path: str) -> bytes:
     filename = os.path.basename(path.replace('\\', '/').strip())
-    url = f"https://raw.githubusercontent.com/mrjohnfox/baby_clothing_app/main/baby_clothes_photos/{filename}"
+    full_path = os.path.join(photos_dir, filename)
+    img = PILImage.open(full_path)
+    max_w = 400
+    if img.width > max_w:
+        ratio = max_w / img.width
+        img = img.resize((max_w, int(img.height * ratio)), PILImage.LANCZOS)
+    buf = BytesIO()
+    img.save(buf, format="JPEG", quality=85)
+    return buf.getvalue()
+
+def show_image_bytes(path: str, caption: str = ""):
     try:
-        st.image(url, use_container_width=True, caption=caption)
+        img_bytes = load_and_prepare_image(path)
+        st.image(img_bytes, use_container_width=True, caption=caption)
     except Exception as e:
         st.warning(f"Could not load image: {e}")
 
