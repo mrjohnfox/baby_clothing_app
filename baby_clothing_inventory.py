@@ -1,3 +1,4 @@
+from streamlit_back_camera_input import back_camera_input
 import streamlit as st
 import sqlite3
 import pandas as pd
@@ -121,6 +122,7 @@ def show_image_bytes(path: str, caption: str = ""):
 if menu == "Add Item":
     st.title("Add New Baby Clothing Item")
 
+    # this flag lets us reset the form after submit
     if "reset_add_item" not in st.session_state:
         st.session_state.reset_add_item = False
     form_key = f"add_item_form_{st.session_state.reset_add_item}"
@@ -151,40 +153,42 @@ if menu == "Add Item":
         description = st.text_area("Description", key="form_description")
 
         st.write("### Upload a Photo or Take One with Your Camera")
-        uploaded_file = st.file_uploader("Upload Photo", type=["jpg","png"], key="form_uploaded_file")
-
-        from streamlit_back_camera_input import back_camera_input
+        uploaded_file = st.file_uploader(
+            "Upload Photo", type=["jpg", "png"], key="form_uploaded_file"
+        )
         camera_file = back_camera_input("Take a Photo")
 
         submit = st.form_submit_button("Add Item")
 
         if submit:
-            # pick camera first, else file upload
-            if camera_file:
+            # choose camera first, otherwise upload
+            if camera_file is not None:
                 photo_data = camera_file.getvalue()
-                filename   = f"{int(time.time()*1000)}.jpg"
-            elif uploaded_file:
+                filename   = f"{int(time.time() * 1000)}.jpg"
+            elif uploaded_file is not None:
                 photo_data = uploaded_file.read()
                 filename   = uploaded_file.name
             else:
                 st.error("Please upload or take a photo.")
-                # inside a form, st.stop() works here
                 st.stop()
 
-            # write image to disk
+            # save image
             local_path = os.path.join(photos_dir, filename)
             with open(local_path, "wb") as f:
                 f.write(photo_data)
 
+            # insert into DB
             cursor.execute(
-                "INSERT INTO baby_clothes (category, age_range, photo_path, description) VALUES (?, ?, ?, ?)",
+                "INSERT INTO baby_clothes (category, age_range, photo_path, description)"
+                " VALUES (?, ?, ?, ?)",
                 (category, age_range, local_path, description),
             )
             conn.commit()
+
             st.success("Baby clothing item added successfully!")
             time.sleep(2)
 
-            # trigger a fresh, cleared form
+            # flip flag so form keys change (this clears the form)
             st.session_state.reset_add_item = not st.session_state.reset_add_item
             st.rerun()
 
