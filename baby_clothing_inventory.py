@@ -61,23 +61,23 @@ if menu == "Add Item":
         st.session_state.reset_add_item = False
 
         with st.form(key="add_item_form"):
-        category = st.radio(
-            "Category",
-            [
-                "Bodysuits",
-                "Pants",
-                "Tops",
-                "Dresses",
-                "Jackets",
-                "Knitwear",
-                "Jumpers",
-                "Accessories",
-                "Shoes",
-                "Sleepwear",
-                "Sets",
-                "Home",
-                "Food Prep",
-                "Dungarees"],
+            category = st.radio(
+                "Category",
+                [
+                    "Bodysuits",
+                    "Pants",
+                    "Tops",
+                    "Dresses",
+                    "Jackets",
+                    "Knitwear",
+                    "Jumpers",
+                    "Accessories",
+                    "Shoes",
+                    "Sleepwear",
+                    "Sets",
+                    "Home",
+                    "Food Prep",
+                    "Dungarees"],
             key="form_category" if st.session_state.reset_add_item else "category",
         )
         age_range = st.radio(
