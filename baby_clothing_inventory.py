@@ -135,14 +135,14 @@ else:
                     continue
 
                     for idx, row in category_items.iterrows():
-                    if len(category_items) >= 3:
-                        col = [col1, col2, col3][idx % 3]
-                    elif len(category_items) == 2:
-                        col = [col1, col2][idx % 2]
-                    elif len(category_items) == 1:
-                        col = col1
+                        if len(category_items) >= 3:
+                            col = [col1, col2, col3][idx % 3]
+                        elif len(category_items) == 2:
+                            col = [col1, col2][idx % 2]
+                        elif len(category_items) == 1:
+                            col = col1
 
-            with col:
+                        with col:
                         try:
 
                             filename = os.path.basename(row["photo_path"].strip())
