@@ -286,11 +286,11 @@ elif menu == "Export/Import":
     st.subheader("Import Inventory")
     uploaded_csv = st.file_uploader("Upload a CSV file", type="csv")
     if uploaded_csv:
-    try:
+        try:
             imported_df = pd.read_csv(uploaded_csv)
             imported_df.to_sql("baby_clothes", conn, if_exists="append", index=False)
             st.success("Data imported successfully!")
-                except Exception as e:
+        except Exception as e:
             st.error(f"An error occurred: {e}")
 
 elif menu == "Visualize Data":
