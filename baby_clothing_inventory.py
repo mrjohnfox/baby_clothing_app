@@ -118,7 +118,7 @@ def show_image_bytes(path: str, caption: str = ""):
     except Exception as e:
         st.warning(f"Could not load image: {e}")
 
-# 1. Add Item Add Item
+# 1. Add Item
 if menu == "Add Item":
     st.title("Add New Baby Clothing Item")
 
@@ -156,7 +156,10 @@ if menu == "Add Item":
         uploaded_file = st.file_uploader(
             "Upload Photo", type=["jpg", "png"], key="form_uploaded_file"
         )
-        camera_file = back_camera_input("Take a Photo")
+        try:
+            camera_file = back_camera_input("Take a Photo (rear)")
+        except Exception:
+            camera_file = st.camera_input("Take a Photo")
 
         submit = st.form_submit_button("Add Item")
 
