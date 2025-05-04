@@ -73,38 +73,40 @@ def show_image_bytes(path: str, caption: str = ""):
         st.warning(f"Could not load image: {e}")
 
 # 1. Add Item Add Item
-st.title("Add New Baby Clothing Item")
+if menu == "Add Item":
+    st.title("Add New Baby Clothing Item")
 
-if "reset_add_item" not in st.session_state:
-    st.session_state.reset_add_item = False
+    if "reset_add_item" not in st.session_state:
+        st.session_state.reset_add_item = False
 
-form_key = f"add_item_form_{st.session_state.reset_add_item}"
-with st.form(key=form_key):
-    category = st.radio(
-        "Category",
-        [
-            "Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
-            "Jumpers","Accessories","Shoes","Sleepwear","Sets",
-            "Home","Food Prep","Dungarees"
-        ],
-        key="form_category"
-    )
-    age_range = st.radio(
-        "Age Range",
-        [
-            "0–3 months","3–6 months","6–9 months","9–12 months",
-            "12–18 months","18–24 months","24–36 months","3–4 years",
-            "4–5 years","5–6 years","No age"
-        ],
-        key="form_age_range"
-    )
-    description = st.text_area("Description", key="form_description")
-    st.write("### Upload a Photo")
-    uploaded_file = st.file_uploader(
-        "Upload Photo", type=["jpg","png"], key="form_uploaded_file"
-    )
-    submit = st.form_submit_button("Add Item")
+    form_key = f"add_item_form_{st.session_state.reset_add_item}"
+    with st.form(key=form_key):
+        category = st.radio(
+            "Category",
+            [
+                "Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
+                "Jumpers","Accessories","Shoes","Sleepwear","Sets",
+                "Home","Food Prep","Dungarees"
+            ],
+            key="form_category",
+        )
+        age_range = st.radio(
+            "Age Range",
+            [
+                "0–3 months","3–6 months","6–9 months","9–12 months",
+                "12–18 months","18–24 months","24–36 months","3–4 years",
+                "4–5 years","5–6 years","No age"
+            ],
+            key="form_age_range",
+        )
+        description = st.text_area("Description", key="form_description")
+        st.write("### Upload a Photo")
+        uploaded_file = st.file_uploader(
+            "Upload Photo", type=["jpg","png"], key="form_uploaded_file"
+        )
+        submit = st.form_submit_button("Add Item")
 
+    # ← Dedent here: the `with` block ends at the same level as `form_key=…` above
     if submit:
         if not uploaded_file:
             st.error("Please upload a photo.")
@@ -113,20 +115,16 @@ with st.form(key=form_key):
             with open(local_path, "wb") as f:
                 f.write(uploaded_file.read())
             cursor.execute(
-                """
-                INSERT INTO baby_clothes (category, age_range, photo_path, description)
-                VALUES (?, ?, ?, ?)
-                """,
+                "INSERT INTO baby_clothes (category, age_range, photo_path, description) VALUES (?, ?, ?, ?)",
                 (category, age_range, local_path, description),
             )
             conn.commit()
             st.success("Baby clothing item added successfully!")
             time.sleep(2)
-            # toggle the form key so it resets next run
             st.session_state.reset_add_item = not st.session_state.reset_add_item
             st.rerun()
 
-# 2. View Inventory
+# ← Now you’re back at the top level for `elif menu == …`
 elif menu == "View Inventory":
     st.title("View Inventory")
     df = pd.read_sql("SELECT * FROM baby_clothes", conn)
