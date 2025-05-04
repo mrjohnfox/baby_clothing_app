@@ -126,58 +126,60 @@ if menu == "Add Item":
         st.session_state.reset_add_item = False
     form_key = f"add_item_form_{st.session_state.reset_add_item}"
 
-    with st.expander("➕ Add New Item", expanded=True):
-        with st.form(key=form_key):
-            # Side-by-side on tablet/desktop, stacked on mobile
-            cols = st.columns(2)
-            with cols[0]:
-                category = st.selectbox(
-                    "Category",
-                    [
-                        "Bodysuits", "Pants", "Tops", "Dresses", "Jackets", "Knitwear",
-                        "Jumpers", "Accessories", "Shoes", "Sleepwear", "Sets",
-                        "Home", "Food Prep", "Dungarees"
-                    ],
-                    key="form_category",
-                )
-            with cols[1]:
-                age_range = st.selectbox(
-                    "Age Range",
-                    [
-                        "0–3 months", "3–6 months", "6–9 months", "9–12 months",
-                        "12–18 months", "18–24 months", "24–36 months",
-                        "3–4 years", "4–5 years", "5–6 years", "No age"
-                    ],
-                    key="form_age_range",
-                )
-
-            description = st.text_area("Description", key="form_description")
-            st.write("### Upload a Photo")
-            uploaded_file = st.file_uploader(
-                "Upload Photo", type=["jpg", "png"], key="form_uploaded_file"
+    # Directly render the form (no expander)
+    with st.form(key=form_key):
+        # Two‐column layout that stacks on mobile
+        cols = st.columns(2)
+        with cols[0]:
+            category = st.selectbox(
+                "Category",
+                [
+                    "Bodysuits", "Pants", "Tops", "Dresses", "Jackets", "Knitwear",
+                    "Jumpers", "Accessories", "Shoes", "Sleepwear", "Sets",
+                    "Home", "Food Prep", "Dungarees"
+                ],
+                key="form_category",
+            )
+        with cols[1]:
+            age_range = st.selectbox(
+                "Age Range",
+                [
+                    "0–3 months", "3–6 months", "6–9 months", "9–12 months",
+                    "12–18 months", "18–24 months", "24–36 months",
+                    "3–4 years", "4–5 years", "5–6 years", "No age"
+                ],
+                key="form_age_range",
             )
 
-            submit = st.form_submit_button("Add Item")
+        description = st.text_area("Description", key="form_description")
 
-        if submit:
-            if not uploaded_file:
-                st.error("Please upload a photo.")
-            else:
-                local_path = os.path.join(photos_dir, uploaded_file.name)
-                with open(local_path, "wb") as f:
-                    f.write(uploaded_file.read())
+        st.write("### Upload a Photo")
+        uploaded_file = st.file_uploader(
+            "Upload Photo", type=["jpg", "png"], key="form_uploaded_file"
+        )
 
-                cursor.execute(
-                    "INSERT INTO baby_clothes (category, age_range, photo_path, description) VALUES (?, ?, ?, ?)",
-                    (category, age_range, local_path, description),
-                )
-                conn.commit()
-                st.success("Baby clothing item added successfully!")
-                time.sleep(2)
+        submit = st.form_submit_button("Add Item")
 
-                # reset the form on rerun
-                st.session_state.reset_add_item = not st.session_state.reset_add_item
-                st.rerun()
+    # Handle submission
+    if submit:
+        if not uploaded_file:
+            st.error("Please upload a photo.")
+        else:
+            local_path = os.path.join(photos_dir, uploaded_file.name)
+            with open(local_path, "wb") as f:
+                f.write(uploaded_file.read())
+
+            cursor.execute(
+                "INSERT INTO baby_clothes (category, age_range, photo_path, description) VALUES (?, ?, ?, ?)",
+                (category, age_range, local_path, description),
+            )
+            conn.commit()
+            st.success("Baby clothing item added successfully!")
+            time.sleep(2)
+
+            # Reset form on next render
+            st.session_state.reset_add_item = not st.session_state.reset_add_item
+            st.rerun()
 
 # ← Now you’re back at the top level for `elif menu == …`
 elif menu == "View Inventory":
