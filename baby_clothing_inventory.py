@@ -174,17 +174,20 @@ elif menu == "Search & Manage":
     if df.empty:
         st.info("No items to manage.")
     else:
-        cat_sel = st.multiselect(
-            "Category",
-            options=sorted(df["category"].unique()),
-            default=sorted(df["category"].unique()),
-        )
-        age_sel = st.multiselect(
-            "Age Range",
-            options=sorted(df["age_range"].unique()),
-            default=sorted(df["age_range"].unique()),
-        )
+        # build option lists
+        cat_options = sorted(df["category"].unique())
+        age_options = sorted(df["age_range"].unique())
+
+        # no defaults selected
+        cat_sel = st.multiselect("Category", options=cat_options, default=[])
+        age_sel = st.multiselect("Age Range", options=age_options, default=[])
         text_query = st.text_input("Search Description…")
+
+        # treat empty as “all”
+        if not cat_sel:
+            cat_sel = cat_options
+        if not age_sel:
+            age_sel = age_options
 
         filtered = df[df["category"].isin(cat_sel) & df["age_range"].isin(age_sel)]
         if text_query:
@@ -211,29 +214,13 @@ elif menu == "Search & Manage":
                         with st.form(key=f"edit_form_{row['id']}"):
                             new_category = st.selectbox(
                                 "Category",
-                                [
-                                    "Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
-                                    "Jumpers","Accessories","Shoes","Sleepwear","Sets",
-                                    "Home","Food Prep","Dungarees"
-                                ],
-                                index=[
-                                    "Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
-                                    "Jumpers","Accessories","Shoes","Sleepwear","Sets",
-                                    "Home","Food Prep","Dungarees"
-                                ].index(row["category"]),
+                                CATEGORIES,
+                                index=CATEGORIES.index(row["category"]),
                             )
                             new_age_range = st.selectbox(
                                 "Age Range",
-                                [
-                                    "0–3 months","3–6 months","6–9 months","9–12 months",
-                                    "12–18 months","18–24 months","24–36 months",
-                                    "3–4 years","4–5 years","5–6 years","No age"
-                                ],
-                                index=[
-                                    "0–3 months","3–6 months","6–9 months","9–12 months",
-                                    "12–18 months","18–24 months","24–36 months",
-                                    "3–4 years","4–5 years","5–6 years","No age"
-                                ].index(row["age_range"]),
+                                AGE_RANGES,
+                                index=AGE_RANGES.index(row["age_range"]),
                             )
                             new_description = st.text_area("Description", row["description"])
                             if st.form_submit_button("Save Changes"):
