@@ -145,15 +145,15 @@ elif menu == "View Inventory":
                     with col:
                         try:
 
-                    filename = os.path.basename(row["photo_path"].strip())
+                            filename = os.path.basename(row["photo_path"].strip())
 
-                    github_image_url = f"https://raw.githubusercontent.com/mrjohnfox/baby_clothing_app/main/baby_clothes_photos/{filename}"
+                            github_image_url = f"https://raw.githubusercontent.com/mrjohnfox/baby_clothing_app/main/baby_clothes_photos/{filename}"
 
-                    st.image(github_image_url, use_container_width=True, caption=row.get("description", ""))
+                            st.image(github_image_url, use_container_width=True, caption=row.get("description", ""))
 
-                except Exception as e:
+                        except Exception as e:
 
-                    st.warning(f"Could not load image: {e}")
+                            st.warning(f"Could not load image: {e}")
 
 elif menu == "Search & Edit":
     st.title("Search & Edit Items")
@@ -251,17 +251,17 @@ elif menu == "Gallery":
         for idx, row in df.iterrows():
             col = [col1, col2, col3][idx % 3]
                     with col:
-                try:
+                        try:
 
-                    filename = os.path.basename(row["photo_path"].strip())
+                            filename = os.path.basename(row["photo_path"].strip())
 
-                    github_image_url = f"https://raw.githubusercontent.com/mrjohnfox/baby_clothing_app/main/baby_clothes_photos/{filename}"
+                            github_image_url = f"https://raw.githubusercontent.com/mrjohnfox/baby_clothing_app/main/baby_clothes_photos/{filename}"
 
-                    st.image(github_image_url, use_container_width=True, caption=row.get("description", ""))
+                            st.image(github_image_url, use_container_width=True, caption=row.get("description", ""))
 
-                except Exception as e:
+                        except Exception as e:
 
-                    st.warning(f"Could not load image: {e}")
+                            st.warning(f"Could not load image: {e}")
 
 elif menu == "Export/Import":
     st.title("Export and Import Data")
