@@ -112,7 +112,7 @@ def load_and_prepare_image(path: str) -> bytes:
     buf = BytesIO()
     img.save(buf, format="JPEG", quality=85)
     return buf.getvalue()
-
+    
 def show_image_bytes(path: str, caption: str = ""):
     try:
         if path.startswith("http"):  # GitHub raw URL
@@ -121,9 +121,18 @@ def show_image_bytes(path: str, caption: str = ""):
                 st.image(response.content, use_container_width=True, caption=caption)
             else:
                 st.warning(f"Could not load image from GitHub URL: {response.status_code}")
-        else:  # local file
-            img_bytes = load_and_prepare_image(path)
-            st.image(img_bytes, use_container_width=True, caption=caption)
+        elif os.path.isfile(path):  # Full local path
+            with open(path, "rb") as f:
+                st.image(f.read(), use_container_width=True, caption=caption)
+        else:
+            # Try using just the filename with local dir
+            filename = os.path.basename(path)
+            full_path = os.path.join(photos_dir, filename)
+            if os.path.exists(full_path):
+                img_bytes = load_and_prepare_image(full_path)
+                st.image(img_bytes, use_container_width=True, caption=caption)
+            else:
+                st.warning("Image file not found.")
     except Exception as e:
         st.warning(f"Could not load image: {e}")
 
