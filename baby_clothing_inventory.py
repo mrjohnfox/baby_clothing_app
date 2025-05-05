@@ -9,10 +9,16 @@ from PIL import Image
 import requests
 import base64
 
+# --- GitHub upload helper (no changes) ---
+GITHUB_TOKEN = st.secrets["github"]["token"]
+GITHUB_REPO = "mrjohnfox/baby_clothing_app"
+GITHUB_PHOTO_FOLDER = "baby_clothes_photos"
+GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{GITHUB_PHOTO_FOLDER}"
+
 def upload_image_to_github(image_bytes, filename):
     headers = {
         "Authorization": f"token {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github+json"
+        "Accept": "application/vnd.github+json",
     }
 
     url = f"{GITHUB_API_URL}/{filename}"
@@ -20,28 +26,21 @@ def upload_image_to_github(image_bytes, filename):
 
     # Step 1: Check if file exists to get the SHA
     get_resp = requests.get(url, headers=headers)
-    if get_resp.status_code == 200:
-        sha = get_resp.json().get("sha")
-    else:
-        sha = None
+    sha = get_resp.json().get("sha") if get_resp.status_code == 200 else None
 
-    # Step 2: Upload or update with/without SHA
-    data = {
-        "message": f"Upload {filename}",
-        "content": content
-    }
+    # Step 2: Upload or update
+    data = {"message": f"Upload {filename}", "content": content}
     if sha:
         data["sha"] = sha
 
     put_resp = requests.put(url, headers=headers, json=data)
-
-    if put_resp.status_code in [200, 201]:
+    if put_resp.status_code in (200, 201):
         return f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/{GITHUB_PHOTO_FOLDER}/{filename}"
     else:
         st.error(f"GitHub upload failed: {put_resp.json()}")
         return None
 
-# Page config and responsive CSS
+# --- Page config & CSS (no changes) ---
 st.set_page_config(
     page_title="Baby Clothing Inventory",
     layout="wide",
@@ -50,12 +49,12 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    /* Stack all columns on screens narrower than 768px */
+    /* Mobile‐first tweaks… */
     @media (max-width: 768px) {
-      [data-testid="column"] { width: 100% !important; display: block !important; }
-      button, .stButton > button { width: 100% !important; margin: 0.5rem 0 !important; font-size: 1rem !important; padding: 0.75rem !important; }
-      textarea, input, .stTextInput > div > input { font-size: 1rem !important; }
-      .stPlotlyChart, .stPyplotContainer { padding: 0 !important; }
+      [data-testid="column"] { width:100% !important; display:block !important; }
+      button, .stButton>button { width:100% !important; margin:0.5rem 0 !important; font-size:1rem !important; padding:0.75rem !important; }
+      textarea, input, .stTextInput>div>input { font-size:1rem !important; }
+      .stPlotlyChart, .stPyplotContainer { padding:0 !important; }
     }
     button { font-size:16px !important; padding:10px !important; }
     .streamlit-expander { overflow-y:auto !important; max-height:300px; }
@@ -64,16 +63,14 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Connect to SQLite database
+# --- Database setup (no changes) ---
 db_path = "baby_clothes_inventory.db"
 conn = sqlite3.connect(db_path, check_same_thread=False)
 cursor = conn.cursor()
 
-# Ensure photos directory exists
 photos_dir = "baby_clothes_photos"
 os.makedirs(photos_dir, exist_ok=True)
 
-# Create database table if not exists
 cursor.execute(
     """
     CREATE TABLE IF NOT EXISTS baby_clothes (
@@ -87,14 +84,14 @@ cursor.execute(
 )
 conn.commit()
 
-# Sidebar
+# --- Sidebar (no changes) ---
 menu = st.sidebar.radio(
     "Menu",
     ["Add Item", "View Inventory", "Search & Manage", "Visualize Data", "Gallery", "Export/Import"],
     index=0,
 )
 
-# Helper to display images
+# --- Image helper and alias ---
 from io import BytesIO
 from PIL import Image as PILImage
 
@@ -112,69 +109,27 @@ def load_and_prepare_image(path: str) -> bytes:
     buf = BytesIO()
     img.save(buf, format="JPEG", quality=85)
     return buf.getvalue()
-    
+
 def show_image(path: str, caption: str = ""):
     try:
         if path.startswith("http"):
-            # remote GitHub raw URL
             st.image(path, use_container_width=True, caption=caption)
         else:
-            # strip any folder junk and get just the filename
             filename = os.path.basename(path)
             local_file = os.path.join(photos_dir, filename)
-            
             if os.path.exists(local_file):
                 st.image(local_file, use_container_width=True, caption=caption)
             elif os.path.exists(path):
-                # fallback if DB already had a correct local path
                 st.image(path, use_container_width=True, caption=caption)
             else:
                 st.warning(f"Image file not found: {filename}")
     except Exception as e:
         st.warning(f"Could not load image: {e}")
 
-# 1. Add Item
-import base64
-import requests
+# alias the old name so existing calls still work
+show_image_bytes = show_image
 
-GITHUB_TOKEN = st.secrets["github"]["token"]
-GITHUB_REPO = "mrjohnfox/baby_clothing_app"
-GITHUB_PHOTO_FOLDER = "baby_clothes_photos"
-GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{GITHUB_PHOTO_FOLDER}"
-
-def upload_image_to_github(image_bytes, filename):
-    headers = {
-        "Authorization": f"token {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github+json"
-    }
-
-    url = f"{GITHUB_API_URL}/{filename}"
-    content = base64.b64encode(image_bytes).decode("utf-8")
-
-    # Step 1: Check if file exists to get the SHA
-    get_resp = requests.get(url, headers=headers)
-    if get_resp.status_code == 200:
-        sha = get_resp.json().get("sha")
-    else:
-        sha = None
-
-    # Step 2: Upload or update with/without SHA
-    data = {
-        "message": f"Upload {filename}",
-        "content": content
-    }
-    if sha:
-        data["sha"] = sha
-
-    put_resp = requests.put(url, headers=headers, json=data)
-
-    if put_resp.status_code in [200, 201]:
-        return f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/{GITHUB_PHOTO_FOLDER}/{filename}"
-    else:
-        st.error(f"GitHub upload failed: {put_resp.json()}")
-        return None
-
-# --- Add Item Section ---
+# --- 1. Add Item ---
 if menu == "Add Item":
     st.title("Add New Baby Clothing Item")
     if "reset_add_item" not in st.session_state:
@@ -223,7 +178,6 @@ if menu == "Add Item":
                 st.error("Please upload or take a photo.")
                 st.stop()
 
-            # Upload to GitHub
             github_url = upload_image_to_github(photo_data, filename)
             if github_url:
                 cursor.execute(
@@ -231,13 +185,12 @@ if menu == "Add Item":
                     (category, age_range, github_url, description),
                 )
                 conn.commit()
-
                 st.success("Baby clothing item added and photo saved to GitHub!")
                 time.sleep(2)
                 st.session_state.reset_add_item = not st.session_state.reset_add_item
                 st.rerun()
-                
-# 2. View Inventory
+
+# --- 2. View Inventory ---
 elif menu == "View Inventory":
     st.title("View Inventory")
     df = pd.read_sql("SELECT * FROM baby_clothes", conn)
@@ -254,23 +207,20 @@ elif menu == "View Inventory":
                         st.write(f"**Age:** {row['age_range']}")
                         st.write(f"**Description:** {row['description']}")
 
-# 3. Search & Manage
+# --- 3. Search & Manage ---
 elif menu == "Search & Manage":
     st.title("Search & Manage Inventory")
     df = pd.read_sql("SELECT * FROM baby_clothes", conn)
     if df.empty:
         st.info("No items to manage.")
     else:
-        # build option lists
         cat_options = sorted(df["category"].unique())
         age_options = sorted(df["age_range"].unique())
 
-        # no defaults selected
         cat_sel = st.multiselect("Category", options=cat_options, default=[])
         age_sel = st.multiselect("Age Range", options=age_options, default=[])
         text_query = st.text_input("Search Description…")
 
-        # treat empty as “all”
         if not cat_sel:
             cat_sel = cat_options
         if not age_sel:
@@ -289,7 +239,7 @@ elif menu == "Search & Manage":
         else:
             for _, row in filtered.iterrows():
                 with st.expander(f"{row['category']} ({row['age_range']}) - {row['description']}"):
-                    show_image_bytes(row["photo_path"], row["description"])
+                    show_image(row["photo_path"], caption=row["description"])
                     st.write(f"**Category:** {row['category']}")
                     st.write(f"**Age Range:** {row['age_range']}")
                     st.write(f"**Description:** {row['description']}")
@@ -301,13 +251,29 @@ elif menu == "Search & Manage":
                         with st.form(key=f"edit_form_{row['id']}"):
                             new_category = st.selectbox(
                                 "Category",
-                                CATEGORIES,
-                                index=CATEGORIES.index(row["category"]),
+                                [
+                                    "Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
+                                    "Jumpers","Accessories","Shoes","Sleepwear","Sets",
+                                    "Home","Food Prep","Dungarees"
+                                ],
+                                index=[
+                                    "Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
+                                    "Jumpers","Accessories","Shoes","Sleepwear","Sets",
+                                    "Home","Food Prep","Dungarees"
+                                ].index(row["category"]),
                             )
                             new_age_range = st.selectbox(
                                 "Age Range",
-                                AGE_RANGES,
-                                index=AGE_RANGES.index(row["age_range"]),
+                                [
+                                    "0–3 months","3–6 months","6–9 months","9–12 months",
+                                    "12–18 months","18–24 months","24–36 months",
+                                    "3–4 years","4–5 years","5–6 years","No age"
+                                ],
+                                index=[
+                                    "0–3 months","3–6 months","6–9 months","9–12 months",
+                                    "12–18 months","18–24 months","24–36 months",
+                                    "3–4 years","4–5 years","5–6 years","No age"
+                                ].index(row["age_range"]),
                             )
                             new_description = st.text_area("Description", row["description"])
                             if st.form_submit_button("Save Changes"):
@@ -332,7 +298,7 @@ elif menu == "Search & Manage":
                         time.sleep(2)
                         st.rerun()
 
-# 4. Visualize Data
+# --- 4. Visualize Data ---
 elif menu == "Visualize Data":
     st.title("Visualize Inventory Data")
     df = pd.read_sql("SELECT * FROM baby_clothes", conn)
@@ -348,7 +314,7 @@ elif menu == "Visualize Data":
         df['age_range'].value_counts().plot(kind='pie', ax=ax2, autopct='%1.1f%%')
         st.pyplot(fig2)
 
-# 5. Gallery
+# --- 5. Gallery ---
 elif menu == "Gallery":
     st.title("Photo Gallery")
     df = pd.read_sql("SELECT * FROM baby_clothes", conn)
@@ -357,11 +323,11 @@ elif menu == "Gallery":
     else:
         cols = st.columns(3)
         for idx, row in df.iterrows():
-            with cols[idx % 3]:
-                show_image_bytes(row['photo_path'], caption=f"{row['category']} ({row['age_range']})")
+            with cols[idx % len(cols)]:
+                show_image(row['photo_path'], caption=f"{row['category']} ({row['age_range']})")
                 st.write(row['description'])
 
-# 6. Export/Import
+# --- 6. Export/Import ---
 elif menu == "Export/Import":
     st.title("Export and Import Data")
     st.subheader("Export Inventory")
@@ -380,6 +346,5 @@ elif menu == "Export/Import":
         except Exception as e:
             st.error(f"An error occurred: {e}")
 
-# Close connection
+# --- Close connection ---
 conn.close()
-
