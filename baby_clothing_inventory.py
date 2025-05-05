@@ -115,8 +115,21 @@ def load_and_prepare_image(path: str) -> bytes:
     
 def show_image(path: str, caption: str = ""):
     try:
-        # Streamlit can render both remote URLs and local files
-        st.image(path, use_container_width=True, caption=caption)
+        if path.startswith("http"):
+            # remote GitHub raw URL
+            st.image(path, use_container_width=True, caption=caption)
+        else:
+            # strip any folder junk and get just the filename
+            filename = os.path.basename(path)
+            local_file = os.path.join(photos_dir, filename)
+            
+            if os.path.exists(local_file):
+                st.image(local_file, use_container_width=True, caption=caption)
+            elif os.path.exists(path):
+                # fallback if DB already had a correct local path
+                st.image(path, use_container_width=True, caption=caption)
+            else:
+                st.warning(f"Image file not found: {filename}")
     except Exception as e:
         st.warning(f"Could not load image: {e}")
 
