@@ -23,7 +23,6 @@ def upload_image_to_github(image_bytes, filename):
     }
     url = f"{GITHUB_API_URL}/{filename}"
     content = base64.b64encode(image_bytes).decode("utf-8")
-    # Fetch existing SHA if present
     get_resp = requests.get(url, headers=headers)
     sha = get_resp.json().get("sha") if get_resp.status_code == 200 else None
     data = {"message": f"Upload {filename}", "content": content}
@@ -36,7 +35,7 @@ def upload_image_to_github(image_bytes, filename):
         st.error(f"GitHub upload failed: {put_resp.json()}")
         return None
 
-# --- Page config & responsive CSS ---
+# --- Page config & CSS ---
 st.set_page_config(
     page_title="Baby Clothing Inventory",
     layout="wide",
@@ -59,10 +58,8 @@ st.markdown("""
 db_path = "baby_clothes_inventory.db"
 conn    = sqlite3.connect(db_path, check_same_thread=False)
 cursor  = conn.cursor()
-
 photos_dir = "baby_clothes_photos"
 os.makedirs(photos_dir, exist_ok=True)
-
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS baby_clothes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -74,11 +71,10 @@ cursor.execute("""
 """)
 conn.commit()
 
-# --- Sidebar menu ---
+# --- Sidebar menu (no fixed index) ---
 menu = st.sidebar.radio(
     "Menu",
-    ["Add Item", "View Inventory", "Search & Manage", "Visualize Data", "Gallery", "Export/Import"],
-    index=0,
+    ["Add Item", "View Inventory", "Search & Manage", "Visualize Data", "Gallery", "Export/Import"]
 )
 
 # --- Image display helper ---
@@ -87,10 +83,10 @@ def show_image(path: str, caption: str = ""):
         if path.startswith("http"):
             st.image(path, use_container_width=True, caption=caption)
         else:
-            fn         = os.path.basename(path.replace("\\","/"))
-            local_file = os.path.join(photos_dir, fn)
-            if os.path.exists(local_file):
-                st.image(local_file, use_container_width=True, caption=caption)
+            fn = os.path.basename(path.replace("\\","/"))
+            p  = os.path.join(photos_dir, fn)
+            if os.path.exists(p):
+                st.image(p, use_container_width=True, caption=caption)
             else:
                 st.warning(f"Image file not found: {fn}")
     except Exception as e:
@@ -102,88 +98,79 @@ show_image_bytes = show_image  # alias
 if menu == "Add Item":
     st.title("Add New Baby Clothing Item")
 
-    # reset flag toggles the form keys so they clear
+    # A flag so that each rerun gets fresh widget keys
     if "reset_add_item" not in st.session_state:
         st.session_state.reset_add_item = False
-    reset_flag  = st.session_state.reset_add_item
-    form_key     = f"add_item_form_{reset_flag}"
-    camera_key   = f"form_camera_{reset_flag}"
-    upload_key   = f"form_upload_{reset_flag}"
+    flag      = st.session_state.reset_add_item
+    form_key  = f"form_{flag}"
+    cam_key   = f"cam_{flag}"
+    upl_key   = f"upl_{flag}"
 
     with st.form(key=form_key):
-        # 1) camera first
-        camera_file = st.camera_input("📷 Take a Photo", key=camera_key)
-        # 2) then upload
-        uploaded_file = st.file_uploader("Or upload a Photo", type=["jpg","png"], key=upload_key)
+        camera_file   = st.camera_input("📷 Take a Photo", key=cam_key)
+        uploaded_file = st.file_uploader("Or upload a Photo", type=["jpg","png"], key=upl_key)
 
-        # 3) metadata
         cols = st.columns(2)
         with cols[0]:
             category = st.selectbox(
                 "Category",
-                [
-                    "Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
-                    "Jumpers","Accessories","Shoes","Sleepwear","Sets",
-                    "Home","Food Prep","Dungarees"
-                ],
-                key="form_category",
+                ["Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
+                 "Jumpers","Accessories","Shoes","Sleepwear","Sets",
+                 "Home","Food Prep","Dungarees"],
+                key="form_category"
             )
         with cols[1]:
             age_range = st.selectbox(
                 "Age Range",
-                [
-                    "0–3 months","3–6 months","6–9 months","9–12 months",
-                    "12–18 months","18–24 months","24–36 months",
-                    "3–4 years","4–5 years","5–6 years","No age"
-                ],
-                key="form_age_range",
+                ["0–3 months","3–6 months","6–9 months","9–12 months",
+                 "12–18 months","18–24 months","24–36 months",
+                 "3–4 years","4–5 years","5–6 years","No age"],
+                key="form_age_range"
             )
 
         description = st.text_area("Description", key="form_description")
         submit      = st.form_submit_button("Add Item")
 
-    # Handle the submission _after_ closing the with‐block
     if submit:
+        # pick camera first, else upload
         if camera_file:
-            photo_data = camera_file.getvalue()
-            filename   = f"{int(time.time()*1000)}.jpg"
+            data = camera_file.getvalue()
+            fn   = f"{int(time.time()*1000)}.jpg"
         elif uploaded_file:
-            photo_data = uploaded_file.read()
-            filename   = uploaded_file.name
+            data = uploaded_file.read()
+            fn   = uploaded_file.name
         else:
-            st.error("Please either take a photo or upload one.")
+            st.error("Please take or upload a photo.")
             st.stop()
 
-        # Save locally & INSERT
-        local_path = os.path.join(photos_dir, filename)
-        with open(local_path, "wb") as f:
-            f.write(photo_data)
-
+        # 1) Save locally & INSERT
+        local_p = os.path.join(photos_dir, fn)
+        with open(local_p, "wb") as f:
+            f.write(data)
         cursor.execute(
-            "INSERT INTO baby_clothes (category, age_range, photo_path, description) VALUES (?, ?, ?, ?)",
-            (category, age_range, local_path, description)
+            "INSERT INTO baby_clothes (category, age_range, photo_path, description) VALUES (?,?,?,?)",
+            (category, age_range, local_p, description)
         )
         conn.commit()
         new_id = cursor.lastrowid
 
-        # Try GitHub upload & UPDATE
-        gh_url = upload_image_to_github(photo_data, filename)
-        if gh_url:
+        # 2) Try GitHub & UPDATE
+        gh = upload_image_to_github(data, fn)
+        if gh:
             cursor.execute(
                 "UPDATE baby_clothes SET photo_path = ? WHERE id = ?",
-                (gh_url, new_id)
+                (gh, new_id)
             )
             conn.commit()
 
-        st.success("Item added successfully!")
+        st.success("Item added!")
         time.sleep(1)
 
-        # Clear the old form keys
-        for k in (camera_key, upload_key, "form_category", "form_age_range", "form_description"):
-            if k in st.session_state:
-                del st.session_state[k]
-        # Toggle our reset flag to force new keys next render
-        st.session_state.reset_add_item = not reset_flag
+        # clear old widgets
+        for k in (cam_key, upl_key, "form_category", "form_age_range", "form_description"):
+            st.session_state.pop(k, None)
+        # flip flag to get fresh keys next run
+        st.session_state.reset_add_item = not flag
 
         st.rerun()
 
@@ -192,61 +179,57 @@ elif menu == "View Inventory":
     st.title("View Inventory")
     df = pd.read_sql("SELECT * FROM baby_clothes", conn)
     if df.empty:
-        st.info("No items in inventory.")
+        st.info("No items yet.")
     else:
         for cat in sorted(df["category"].unique()):
             with st.expander(cat):
-                items = df[df["category"] == cat]
-                cols  = st.columns(min(3, len(items)))
-                for idx, row in items.iterrows():
-                    with cols[idx % len(cols)]:
+                group = df[df["category"] == cat]
+                cols  = st.columns(min(3, len(group)))
+                for i,row in group.iterrows():
+                    with cols[i % len(cols)]:
                         show_image(row["photo_path"], caption=row["description"])
                         st.write(f"**Age:** {row['age_range']}")
-                        st.write(f"**Description:** {row['description']}")
 
 # --- 3. Search & Manage ---
 elif menu == "Search & Manage":
     st.title("Search & Manage Inventory")
     df = pd.read_sql("SELECT * FROM baby_clothes", conn)
     if df.empty:
-        st.info("No items to manage.")
+        st.info("Nothing to manage.")
     else:
         cats = sorted(df["category"].unique())
         ages = sorted(df["age_range"].unique())
 
-        sel_cats = st.multiselect("Category", options=cats, default=[])
-        sel_ages = st.multiselect("Age Range", options=ages, default=[])
-        txt      = st.text_input("Search Description…")
+        sel_c = st.multiselect("Category", options=cats)
+        sel_a = st.multiselect("Age Range", options=ages)
+        txt   = st.text_input("Description search…")
 
-        if not sel_cats:
-            sel_cats = cats
-        if not sel_ages:
-            sel_ages = ages
-
-        filt = df[df["category"].isin(sel_cats) & df["age_range"].isin(sel_ages)]
+        if not sel_c: sel_c = cats
+        if not sel_a: sel_a = ages
+        filt = df[df["category"].isin(sel_c) & df["age_range"].isin(sel_a)]
         if txt:
             filt = filt[filt["description"].str.contains(txt, case=False, na=False)]
 
         st.write(f"Showing {len(filt)} of {len(df)} items")
         if filt.empty:
-            st.warning("No items match.")
+            st.warning("No matches.")
         else:
-            for _, row in filt.iterrows():
+            for _,row in filt.iterrows():
                 with st.expander(f"{row['category']} ({row['age_range']})"):
                     show_image(row["photo_path"], caption=row["description"])
-                    st.write(f"**Description:** {row['description']}")
+                    st.write(row["description"])
 
 # --- 4. Visualize Data ---
 elif menu == "Visualize Data":
     st.title("Visualize Inventory Data")
     df = pd.read_sql("SELECT * FROM baby_clothes", conn)
     if df.empty:
-        st.info("No data to visualize.")
+        st.info("Nothing to plot.")
     else:
-        fig, ax = plt.subplots()
+        fig,ax = plt.subplots()
         df["category"].value_counts().plot(kind="bar", ax=ax)
         st.pyplot(fig)
-        fig2, ax2 = plt.subplots()
+        fig2,ax2 = plt.subplots()
         df["age_range"].value_counts().plot(kind="pie", ax=ax2, autopct="%1.1f%%")
         st.pyplot(fig2)
 
@@ -255,25 +238,24 @@ elif menu == "Gallery":
     st.title("Photo Gallery")
     df = pd.read_sql("SELECT * FROM baby_clothes", conn)
     if df.empty:
-        st.info("No photos available.")
+        st.info("No photos yet.")
     else:
         cols = st.columns(3)
-        for idx, row in df.iterrows():
+        for idx,row in df.iterrows():
             with cols[idx % 3]:
                 show_image(row["photo_path"], caption=f"{row['category']} ({row['age_range']})")
                 st.write(row["description"])
 
 # --- 6. Export/Import ---
 elif menu == "Export/Import":
-    st.title("Export and Import Data")
-    if st.button("Export as CSV"):
+    st.title("Export / Import")
+    if st.button("Export CSV"):
         df = pd.read_sql("SELECT * FROM baby_clothes", conn)
-        st.download_button("Download Inventory", df.to_csv(index=False), "inventory.csv")
-    up_csv = st.file_uploader("Upload CSV to import", type="csv")
-    if up_csv:
-        df_in = pd.read_csv(up_csv)
-        df_in.to_sql("baby_clothes", conn, if_exists="append", index=False)
-        st.success("Data imported!")
+        st.download_button("Download", df.to_csv(index=False), "inventory.csv")
+    imp = st.file_uploader("Import CSV", type="csv")
+    if imp:
+        pd.read_csv(imp).to_sql("baby_clothes", conn, if_exists="append", index=False)
+        st.success("Imported!")
         time.sleep(1)
         st.rerun()
 
