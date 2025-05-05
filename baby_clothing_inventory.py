@@ -6,6 +6,32 @@ import matplotlib.pyplot as plt
 import os
 import time
 from PIL import Image
+import requests
+import base64
+
+def upload_to_github(file_bytes, filename):
+    token = st.secrets["github"]["token"]
+    repo = st.secrets["github"]["repo"]
+    path = st.secrets["github"]["path"]
+    api_url = f"https://api.github.com/repos/{repo}/contents/{path}/{filename}"
+    
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github+json"
+    }
+
+    content = base64.b64encode(file_bytes).decode("utf-8")
+    data = {
+        "message": f"Add {filename}",
+        "content": content
+    }
+
+    response = requests.put(api_url, headers=headers, json=data)
+    if response.status_code == 201:
+        return f"https://raw.githubusercontent.com/{repo}/main/{path}/{filename}"
+    else:
+        st.error(f"GitHub upload failed: {response.json()}")
+        return None
 
 # Page config and responsive CSS
 st.set_page_config(
@@ -295,3 +321,4 @@ elif menu == "Export/Import":
 
 # Close connection
 conn.close()
+
