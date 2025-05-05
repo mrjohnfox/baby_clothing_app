@@ -29,7 +29,7 @@ def upload_to_github(file_bytes, filename):
 
     response = requests.put(api_url, headers=headers, json=data)
     if response.status_code == 201:
-        return f"https://raw.githubusercontent.com/{repo}/main/{path}/{filename}"
+        return f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/{GITHUB_PHOTO_FOLDER}/{filename}"
     else:
         st.error(f"GitHub upload failed: {response.json()}")
         return None
