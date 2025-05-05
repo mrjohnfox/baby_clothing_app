@@ -116,9 +116,9 @@ def show_image_bytes(path: str, caption: str = ""):
 import base64
 import requests
 
-GITHUB_TOKEN = "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"
-GITHUB_REPO = "mrjohnfox/baby_clothing_app"
-GITHUB_PHOTO_FOLDER = "baby_clothes_photos"
+GITHUB_TOKEN = st.secrets["github"]["token"]
+REPO = st.secrets["github"]["repo"]
+PHOTO_DIR = st.secrets["github"]["path"]
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{GITHUB_PHOTO_FOLDER}"
 
 def upload_image_to_github(image_bytes, filename):
