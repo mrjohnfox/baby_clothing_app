@@ -10,6 +10,12 @@ import base64
 from io import BytesIO
 from PIL import Image as PILImage
 
+# --- Paths in /mnt/data so the UI and your browser inspect the very same files ---
+DATA_DIR    = "/mnt/data"
+DB_PATH     = os.path.join(DATA_DIR, "baby_clothes_inventory.db")
+PHOTOS_DIR  = os.path.join(DATA_DIR, "baby_clothes_photos")
+os.makedirs(PHOTOS_DIR, exist_ok=True)
+
 # --- GitHub upload helper ---
 GITHUB_TOKEN        = st.secrets["github"]["token"]
 GITHUB_REPO         = "mrjohnfox/baby_clothing_app"
@@ -21,15 +27,18 @@ def upload_image_to_github(image_bytes, filename):
         "Authorization": f"token {GITHUB_TOKEN}",
         "Accept":        "application/vnd.github+json",
     }
-    url = f"{GITHUB_API_URL}/{filename}"
+    url     = f"{GITHUB_API_URL}/{filename}"
     content = base64.b64encode(image_bytes).decode("utf-8")
+    # get SHA if exists
     get_resp = requests.get(url, headers=headers)
-    sha = get_resp.json().get("sha") if get_resp.status_code == 200 else None
+    sha      = get_resp.json().get("sha") if get_resp.status_code == 200 else None
+
     data = {"message": f"Upload {filename}", "content": content}
     if sha:
         data["sha"] = sha
+
     put_resp = requests.put(url, headers=headers, json=data)
-    if put_resp.status_code in (200, 201):
+    if put_resp.status_code in (200,201):
         return f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/{GITHUB_PHOTO_FOLDER}/{filename}"
     else:
         st.error(f"GitHub upload failed: {put_resp.json()}")
@@ -54,24 +63,21 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- Database setup ---
-db_path = "baby_clothes_inventory.db"
-conn    = sqlite3.connect(db_path, check_same_thread=False)
-cursor  = conn.cursor()
-photos_dir = "baby_clothes_photos"
-os.makedirs(photos_dir, exist_ok=True)
+# --- Database setup (in /mnt/data) ---
+conn   = sqlite3.connect(DB_PATH, check_same_thread=False)
+cursor = conn.cursor()
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS baby_clothes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        category TEXT,
-        age_range TEXT,
-        photo_path TEXT,
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        category    TEXT,
+        age_range   TEXT,
+        photo_path  TEXT,
         description TEXT
     )
 """)
 conn.commit()
 
-# --- Sidebar menu (no fixed index) ---
+# --- Sidebar (no fixed index so it stays where you click) ---
 menu = st.sidebar.radio(
     "Menu",
     ["Add Item", "View Inventory", "Search & Manage", "Visualize Data", "Gallery", "Export/Import"]
@@ -84,7 +90,7 @@ def show_image(path: str, caption: str = ""):
             st.image(path, use_container_width=True, caption=caption)
         else:
             fn = os.path.basename(path.replace("\\","/"))
-            p  = os.path.join(photos_dir, fn)
+            p  = os.path.join(PHOTOS_DIR, fn)
             if os.path.exists(p):
                 st.image(p, use_container_width=True, caption=caption)
             else:
@@ -98,13 +104,13 @@ show_image_bytes = show_image  # alias
 if menu == "Add Item":
     st.title("Add New Baby Clothing Item")
 
-    # A flag so that each rerun gets fresh widget keys
+    # Force fresh widget keys after submit
     if "reset_add_item" not in st.session_state:
         st.session_state.reset_add_item = False
-    flag      = st.session_state.reset_add_item
-    form_key  = f"form_{flag}"
-    cam_key   = f"cam_{flag}"
-    upl_key   = f"upl_{flag}"
+    flag     = st.session_state.reset_add_item
+    cam_key  = f"cam_{flag}"
+    upl_key  = f"upl_{flag}"
+    form_key = f"form_{flag}"
 
     with st.form(key=form_key):
         camera_file   = st.camera_input("📷 Take a Photo", key=cam_key)
@@ -132,21 +138,21 @@ if menu == "Add Item":
         submit      = st.form_submit_button("Add Item")
 
     if submit:
-        # pick camera first, else upload
         if camera_file:
-            data = camera_file.getvalue()
-            fn   = f"{int(time.time()*1000)}.jpg"
+            photo_data = camera_file.getvalue()
+            fn         = f"{int(time.time()*1000)}.jpg"
         elif uploaded_file:
-            data = uploaded_file.read()
-            fn   = uploaded_file.name
+            photo_data = uploaded_file.read()
+            fn         = uploaded_file.name
         else:
             st.error("Please take or upload a photo.")
             st.stop()
 
         # 1) Save locally & INSERT
-        local_p = os.path.join(photos_dir, fn)
+        local_p = os.path.join(PHOTOS_DIR, fn)
         with open(local_p, "wb") as f:
-            f.write(data)
+            f.write(photo_data)
+
         cursor.execute(
             "INSERT INTO baby_clothes (category, age_range, photo_path, description) VALUES (?,?,?,?)",
             (category, age_range, local_p, description)
@@ -154,8 +160,8 @@ if menu == "Add Item":
         conn.commit()
         new_id = cursor.lastrowid
 
-        # 2) Try GitHub & UPDATE
-        gh = upload_image_to_github(data, fn)
+        # 2) Try GitHub & UPDATE that row
+        gh = upload_image_to_github(photo_data, fn)
         if gh:
             cursor.execute(
                 "UPDATE baby_clothes SET photo_path = ? WHERE id = ?",
@@ -166,10 +172,9 @@ if menu == "Add Item":
         st.success("Item added!")
         time.sleep(1)
 
-        # clear old widgets
+        # Clear form widget state so it really resets
         for k in (cam_key, upl_key, "form_category", "form_age_range", "form_description"):
             st.session_state.pop(k, None)
-        # flip flag to get fresh keys next run
         st.session_state.reset_add_item = not flag
 
         st.rerun()
@@ -193,7 +198,7 @@ elif menu == "View Inventory":
 # --- 3. Search & Manage ---
 elif menu == "Search & Manage":
     st.title("Search & Manage Inventory")
-    df = pd.read_sql("SELECT * FROM baby_clothes", conn)
+    df   = pd.read_sql("SELECT * FROM baby_clothes", conn)
     if df.empty:
         st.info("Nothing to manage.")
     else:
@@ -206,6 +211,7 @@ elif menu == "Search & Manage":
 
         if not sel_c: sel_c = cats
         if not sel_a: sel_a = ages
+
         filt = df[df["category"].isin(sel_c) & df["age_range"].isin(sel_a)]
         if txt:
             filt = filt[filt["description"].str.contains(txt, case=False, na=False)]
@@ -242,7 +248,7 @@ elif menu == "Gallery":
     else:
         cols = st.columns(3)
         for idx,row in df.iterrows():
-            with cols[idx % 3]:
+            with cols[idx % len(cols)]:
                 show_image(row["photo_path"], caption=f"{row['category']} ({row['age_range']})")
                 st.write(row["description"])
 
