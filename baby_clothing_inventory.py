@@ -11,6 +11,7 @@ import base64
 
 def upload_to_github(file_bytes, filename):
     token = st.secrets["github"]["token"]
+    st.write("🔐 Token starts with:", token[:6])
     repo = st.secrets["github"]["repo"]
     path = st.secrets["github"]["path"]
     api_url = f"https://api.github.com/repos/{repo}/contents/{path}/{filename}"
