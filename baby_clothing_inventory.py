@@ -117,8 +117,8 @@ import base64
 import requests
 
 GITHUB_TOKEN = st.secrets["github"]["token"]
-REPO = st.secrets["github"]["repo"]
-PHOTO_DIR = st.secrets["github"]["path"]
+GITHUB_REPO = "mrjohnfox/baby_clothing_app"
+GITHUB_PHOTO_FOLDER = "baby_clothes_photos"
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{GITHUB_PHOTO_FOLDER}"
 
 def upload_image_to_github(image_bytes, filename):
