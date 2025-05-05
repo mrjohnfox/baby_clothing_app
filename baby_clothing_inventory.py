@@ -110,16 +110,42 @@ def show_image(path: str, caption: str = ""):
 show_image_bytes = show_image  # alias
 
 # --- 1. Add Item ---
-# --- 1. Add Item ---
 if menu == "Add Item":
     st.title("Add New Baby Clothing Item")
-
     if "reset_add_item" not in st.session_state:
         st.session_state.reset_add_item = False
     form_key = f"add_item_form_{st.session_state.reset_add_item}"
 
     with st.form(key=form_key):
-        # ... your category/age/description/camera/file-uploader code ...
+        cols = st.columns(2)
+        with cols[0]:
+            category = st.selectbox(
+                "Category",
+                [
+                    "Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
+                    "Jumpers","Accessories","Shoes","Sleepwear","Sets",
+                    "Home","Food Prep","Dungarees"
+                ],
+                key="form_category",
+            )
+        with cols[1]:
+            age_range = st.selectbox(
+                "Age Range",
+                [
+                    "0–3 months","3–6 months","6–9 months","9–12 months",
+                    "12–18 months","18–24 months","24–36 months",
+                    "3–4 years","4–5 years","5–6 years","No age"
+                ],
+                key="form_age_range",
+            )
+
+        description = st.text_area("Description", key="form_description")
+
+        st.write("### Upload a Photo or Take a Photo")
+        uploaded_file = st.file_uploader(
+            "Upload Photo", type=["jpg", "png"], key="form_uploaded_file"
+        )
+        camera_file = st.camera_input("Take a Photo")
 
         submit = st.form_submit_button("Add Item")
 
@@ -205,6 +231,7 @@ elif menu == "Search & Manage":
             ]
 
         st.write(f"Showing {len(filtered)} of {len(df)} items")
+
         if filtered.empty:
             st.warning("No items match those filters.")
         else:
@@ -214,7 +241,60 @@ elif menu == "Search & Manage":
                     st.write(f"**Category:** {row['category']}")
                     st.write(f"**Age Range:** {row['age_range']}")
                     st.write(f"**Description:** {row['description']}")
-                    # ... edit/delete logic unchanged ...
+
+                    edit_key = f"edit_{row['id']}"
+                    if st.button(f"Edit Item {row['id']}", key=edit_key):
+                        st.session_state[edit_key] = True
+                    if st.session_state.get(edit_key, False):
+                        with st.form(key=f"edit_form_{row['id']}"):
+                            new_category = st.selectbox(
+                                "Category",
+                                [
+                                    "Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
+                                    "Jumpers","Accessories","Shoes","Sleepwear","Sets",
+                                    "Home","Food Prep","Dungarees"
+                                ],
+                                index=[
+                                    "Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
+                                    "Jumpers","Accessories","Shoes","Sleepwear","Sets",
+                                    "Home","Food Prep","Dungarees"
+                                ].index(row["category"]),
+                            )
+                            new_age_range = st.selectbox(
+                                "Age Range",
+                                [
+                                    "0–3 months","3–6 months","6–9 months","9–12 months",
+                                    "12–18 months","18–24 months","24–36 months",
+                                    "3–4 years","4–5 years","5–6 years","No age"
+                                ],
+                                index=[
+                                    "0–3 months","3–6 months","6–9 months","9–12 months",
+                                    "12–18 months","18–24 months","24–36 months",
+                                    "3–4 years","4–5 years","5–6 years","No age"
+                                ].index(row["age_range"]),
+                            )
+                            new_description = st.text_area("Description", row["description"])
+                            if st.form_submit_button("Save Changes"):
+                                cursor.execute(
+                                    """
+                                    UPDATE baby_clothes
+                                    SET category = ?, age_range = ?, description = ?
+                                    WHERE id = ?
+                                    """,
+                                    (new_category, new_age_range, new_description, row["id"]),
+                                )
+                                conn.commit()
+                                st.success("Item updated successfully!")
+                                time.sleep(2)
+                                st.rerun()
+
+                    delete_key = f"delete_{row['id']}"
+                    if st.button(f"Delete Item {row['id']}", key=delete_key):
+                        cursor.execute("DELETE FROM baby_clothes WHERE id = ?", (row["id"],))
+                        conn.commit()
+                        st.warning("Item deleted successfully!")
+                        time.sleep(2)
+                        st.rerun()
 
 # --- 4. Visualize Data ---
 elif menu == "Visualize Data":
