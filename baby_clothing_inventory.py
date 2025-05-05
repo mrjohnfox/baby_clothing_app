@@ -8,8 +8,32 @@ import time
 import requests
 import base64
 import tempfile
+import shutil
 from io import BytesIO
 from PIL import Image as PILImage
+
+# --- Paths & migration from repo into tempdir ---
+PROJECT_ROOT = os.getcwd()
+ORIG_DB = os.path.join(PROJECT_ROOT, "baby_clothes_inventory.db")
+ORIG_PHOTOS = os.path.join(PROJECT_ROOT, "baby_clothes_photos")
+
+BASE_DIR = tempfile.gettempdir()
+DB_PATH = os.path.join(BASE_DIR, "baby_clothes_inventory.db")
+PHOTOS_DIR = os.path.join(BASE_DIR, "baby_clothes_photos")
+
+# Copy DB if not already in temp
+if os.path.exists(ORIG_DB) and not os.path.exists(DB_PATH):
+    shutil.copyfile(ORIG_DB, DB_PATH)
+
+# Ensure photo directory in temp
+os.makedirs(PHOTOS_DIR, exist_ok=True)
+# Copy original photos
+if os.path.exists(ORIG_PHOTOS):
+    for fname in os.listdir(ORIG_PHOTOS):
+        src = os.path.join(ORIG_PHOTOS, fname)
+        dst = os.path.join(PHOTOS_DIR, fname)
+        if os.path.isfile(src) and not os.path.exists(dst):
+            shutil.copyfile(src, dst)
 
 # --- GitHub upload helper ---
 GITHUB_TOKEN = st.secrets["github"]["token"]
@@ -25,6 +49,7 @@ def upload_image_to_github(image_bytes, filename):
     url = f"{GITHUB_API_URL}/{filename}"
     content = base64.b64encode(image_bytes).decode("utf-8")
 
+    # get SHA if exists
     get_resp = requests.get(url, headers=headers)
     sha = get_resp.json().get("sha") if get_resp.status_code == 200 else None
 
@@ -42,16 +67,9 @@ def upload_image_to_github(image_bytes, filename):
         st.error(f"GitHub upload failed: {put_resp.json()}")
         return None
 
-# --- Filesystem setup (use temp for write access) ---
-BASE_DIR = tempfile.gettempdir()
-PHOTOS_DIR = os.path.join(BASE_DIR, "baby_clothes_photos")
-os.makedirs(PHOTOS_DIR, exist_ok=True)
-
-DB_PATH = os.path.join(BASE_DIR, "baby_clothes_inventory.db")
+# --- Database setup ---
 conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 cursor = conn.cursor()
-
-# --- Initialize DB ---
 cursor.execute(
     """
     CREATE TABLE IF NOT EXISTS baby_clothes (
@@ -150,10 +168,12 @@ if menu == "Add Item":
                 st.error("Please upload or take a photo.")
                 st.stop()
 
+            # write locally
             local_path = os.path.join(PHOTOS_DIR, fn)
             with open(local_path, "wb") as f:
                 f.write(data)
 
+            # insert into temp DB
             cursor.execute(
                 "INSERT INTO baby_clothes(category, age_range, photo_path, description) VALUES (?, ?, ?, ?)",
                 (category, age_range, local_path, description),
@@ -161,6 +181,7 @@ if menu == "Add Item":
             conn.commit()
             rid = cursor.lastrowid
 
+            # push to GitHub and update row
             gh = upload_image_to_github(data, fn)
             if gh:
                 cursor.execute(
@@ -172,7 +193,7 @@ if menu == "Add Item":
             st.success("Item added!")
             time.sleep(1)
             st.session_state.reset_add_item = not st.session_state.reset_add_item
-            st.rerun()
+            st.experimental_rerun()
 
 # --- 2. View Inventory ---
 elif menu == "View Inventory":
@@ -183,10 +204,10 @@ elif menu == "View Inventory":
     else:
         for cat in df["category"].unique():
             with st.expander(cat):
-                items = df[df["category"]==cat]
+                items = df[df["category"] == cat]
                 cols = st.columns(min(3, len(items)))
-                for i,row in items.iterrows():
-                    with cols[i%len(cols)]:
+                for i, row in items.iterrows():
+                    with cols[i % len(cols)]:
                         show_image(row["photo_path"], row["description"])
                         st.write(f"**Age:** {row['age_range']}")
 
@@ -202,16 +223,16 @@ elif menu == "Search & Manage":
         sel_c = st.multiselect("Category", options=cats, default=[])
         sel_a = st.multiselect("Age Range", options=ages, default=[])
         tq    = st.text_input("Search Description…")
-        if not sel_c: sel_c=cats
-        if not sel_a: sel_a=ages
-        filt = df[df["category"].isin(sel_c)&df["age_range"].isin(sel_a)]
+        if not sel_c: sel_c = cats
+        if not sel_a: sel_a = ages
+        filt = df[df["category"].isin(sel_c) & df["age_range"].isin(sel_a)]
         if tq:
             filt = filt[filt["description"].str.contains(tq, case=False, na=False)]
         st.write(f"Showing {len(filt)} of {len(df)} items")
         if filt.empty:
             st.warning("No matches")
         else:
-            for _,row in filt.iterrows():
+            for _, row in filt.iterrows():
                 with st.expander(f"{row['category']} – {row['description']}"):
                     show_image(row["photo_path"], row["description"])
 
@@ -223,9 +244,9 @@ elif menu == "Visualize Data":
         st.info("No data to visualize.")
     else:
         st.subheader("Items by Category")
-        fig,ax=plt.subplots(); df['category'].value_counts().plot.bar(ax=ax); st.pyplot(fig)
+        fig, ax = plt.subplots(); df['category'].value_counts().plot.bar(ax=ax); st.pyplot(fig)
         st.subheader("Age Range Distribution")
-        fig2,ax2=plt.subplots(); df['age_range'].value_counts().plot.pie(ax=ax2,autopct='%1.1f%%'); st.pyplot(fig2)
+        fig2, ax2 = plt.subplots(); df['age_range'].value_counts().plot.pie(ax=ax2,autopct='%1.1f%%'); st.pyplot(fig2)
 
 # --- 5. Gallery ---
 elif menu == "Gallery":
@@ -235,8 +256,8 @@ elif menu == "Gallery":
         st.info("No photos.")
     else:
         cols = st.columns(3)
-        for i,row in df.iterrows():
-            with cols[i%3]:
+        for i, row in df.iterrows():
+            with cols[i % 3]:
                 show_image(row['photo_path'], f"{row['category']} ({row['age_range']})")
 
 # --- 6. Export/Import ---
@@ -250,6 +271,6 @@ elif menu == "Export/Import":
         df2 = pd.read_csv(up)
         df2.to_sql("baby_clothes", conn, if_exists="append", index=False)
         st.success("Imported!")
-        st.rerun()
+        st.experimental_rerun()
 
 conn.close()
