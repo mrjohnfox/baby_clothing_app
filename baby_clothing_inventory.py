@@ -167,7 +167,7 @@ if menu == "Add Item":
 
             cursor.execute(
                 "INSERT INTO baby_clothes (category, age_range, photo_path, description) VALUES (?, ?, ?, ?)",
-                (category, age_range, local_path, description),
+                (category, age_range, github_url, description),
             )
             conn.commit()
 
