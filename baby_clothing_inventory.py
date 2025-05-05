@@ -237,7 +237,7 @@ elif menu == "View Inventory":
                 cols = st.columns(min(3, len(items)))
                 for idx, row in items.iterrows():
                     with cols[idx % len(cols)]:
-                        show_image_bytes(row["photo_path"], caption=row["description"])
+                        show_image(row["photo_path"], caption=row["description"])
                         st.write(f"**Age:** {row['age_range']}")
                         st.write(f"**Description:** {row['description']}")
 
