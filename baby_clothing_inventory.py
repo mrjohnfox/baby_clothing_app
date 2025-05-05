@@ -156,7 +156,7 @@ def upload_image_to_github(image_bytes, filename):
     put_resp = requests.put(url, headers=headers, json=data)
 
     if put_resp.status_code in [200, 201]:
-        return f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/{GITHUB_PHOTO_FOLDER}/{filename}"
+        return f"https://raw.githubusercontent.com/{repo}/main/{path}/{filename}"
     else:
         st.error(f"GitHub upload failed: {put_resp.json()}")
         return None
