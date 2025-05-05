@@ -94,7 +94,8 @@ st.markdown(
     <style>
     @media (max-width: 768px) {
       [data-testid="column"] { width:100% !important; display:block !important; }
-      button, .stButton>button { width:100% !important; margin:0.5rem 0!important; font-size:1rem!important; padding:0.75rem!important; }
+      button, .stButton>button { width:100% !important; margin:0.5rem 0!important;
+        font-size:1rem!important; padding:0.75rem!important; }
       textarea, input, .stTextInput>div>input { font-size:1rem!important; }
       .stPlotlyChart, .stPyplotContainer { padding:0!important; }
     }
@@ -112,7 +113,7 @@ menu = st.sidebar.radio(
     index=0,
 )
 
-# --- Image display helper ---
+# --- Image display helper (fixed) ---
 def show_image(path: str, caption: str = ""):
     try:
         if path.startswith("http"):
@@ -123,11 +124,11 @@ def show_image(path: str, caption: str = ""):
             if os.path.exists(local):
                 st.image(local, use_container_width=True, caption=caption)
             else:
-                st.warning(f"Image not found: {fn}")
+                st.warning(f"Image not found locally: {fn}")
     except Exception as e:
         st.warning(f"Could not load image: {e}")
 
-show_image_bytes = show_image  # alias for backwards compatibility
+show_image_bytes = show_image  # alias
 
 # --- 1. Add Item ---
 if menu == "Add Item":
@@ -154,8 +155,8 @@ if menu == "Add Item":
                  "3–4 years","4–5 years","5–6 years","No age"],
                 key="form_age_range"
             )
-        description = st.text_area("Description", key="form_description")
 
+        description = st.text_area("Description", key="form_description")
         st.write("### Upload a Photo or Take a Photo")
         cam = st.camera_input("📷 Take a Photo", key="form_cam")
         upl = st.file_uploader("Upload Photo", type=["jpg","png"], key="form_upl")
@@ -172,12 +173,12 @@ if menu == "Add Item":
                 st.error("Please upload or take a photo.")
                 st.stop()
 
-            # 1) write locally
+            # write locally
             local_path = os.path.join(PHOTOS_DIR, fn)
             with open(local_path, "wb") as f:
                 f.write(data)
 
-            # 2) insert into temp DB
+            # insert into temp DB
             cursor.execute(
                 """
                 INSERT INTO baby_clothes(category, age_range, photo_path, description)
@@ -188,7 +189,7 @@ if menu == "Add Item":
             conn.commit()
             rid = cursor.lastrowid
 
-            # 3) upload to GitHub, then update row’s path
+            # push to GitHub and update row’s path
             gh = upload_image_to_github(data, fn)
             if gh:
                 cursor.execute(
@@ -215,10 +216,10 @@ elif menu == "View Inventory":
                 cols = st.columns(min(3, len(items)))
                 for i, row in items.iterrows():
                     with cols[i % len(cols)]:
-                        show_image(row["photo_path"], row["description"])
+                        show_image(row["photo_path"], caption=row["description"])
                         st.write(f"**Age:** {row['age_range']}")
 
-# --- 3. Search & Manage ---
+# --- 3. Search & Manage (with Edit/Delete) ---
 elif menu == "Search & Manage":
     st.title("Search & Manage Inventory")
     df = pd.read_sql("SELECT * FROM baby_clothes", conn)
@@ -239,12 +240,45 @@ elif menu == "Search & Manage":
             filt = filt[filt["description"].str.contains(tq, case=False, na=False)]
 
         st.write(f"Showing {len(filt)} of {len(df)} items")
-        if filt.empty:
-            st.warning("No matches")
-        else:
-            for _, row in filt.iterrows():
-                with st.expander(f"{row['category']} – {row['description']}"):
-                    show_image(row["photo_path"], row["description"])
+
+        for _, row in filt.iterrows():
+            with st.expander(f"{row['category']} ({row['age_range']}) – {row['description']}"):
+                show_image(row["photo_path"], caption=row["description"])
+                st.write(f"**Category:** {row['category']}")
+                st.write(f"**Age Range:** {row['age_range']}")
+                st.write(f"**Description:** {row['description']}")
+
+                # Edit / Delete buttons
+                c1, c2 = st.columns(2)
+                edit_key   = f"edit_{row['id']}"
+                delete_key = f"delete_{row['id']}"
+
+                with c1:
+                    if st.button("✏️ Edit", key=edit_key):
+                        st.session_state[edit_key] = True
+                with c2:
+                    if st.button("🗑️ Delete", key=delete_key):
+                        cursor.execute("DELETE FROM baby_clothes WHERE id=?", (row["id"],))
+                        conn.commit()
+                        st.experimental_rerun()
+
+                # inline edit form
+                if st.session_state.get(edit_key, False):
+                    with st.form(key=f"form_edit_{row['id']}"):
+                        new_cat  = st.selectbox("Category", cats, index=cats.index(row["category"]))
+                        new_age  = st.selectbox("Age Range", ages, index=ages.index(row["age_range"]))
+                        new_desc = st.text_area("Description", row["description"])
+                        if st.form_submit_button("Save Changes"):
+                            cursor.execute(
+                                """
+                                UPDATE baby_clothes
+                                SET category=?, age_range=?, description=?
+                                WHERE id=?
+                                """,
+                                (new_cat, new_age, new_desc, row["id"]),
+                            )
+                            conn.commit()
+                            st.experimental_rerun()
 
 # --- 4. Visualize Data ---
 elif menu == "Visualize Data":
@@ -257,7 +291,6 @@ elif menu == "Visualize Data":
         fig, ax = plt.subplots()
         df["category"].value_counts().plot.bar(ax=ax)
         st.pyplot(fig)
-
         st.subheader("Age Range Distribution")
         fig2, ax2 = plt.subplots()
         df["age_range"].value_counts().plot.pie(ax=ax2, autopct="%1.1f%%")
