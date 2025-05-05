@@ -192,7 +192,7 @@ if menu == "Add Item":
 
         # flip flag to clear form on next run
         st.session_state.reset_add_item = not st.session_state.reset_add_item
-        st.experimental_rerun()
+        st.rerun()
 
 # --- 2. View Inventory ---
 elif menu == "View Inventory":
@@ -282,6 +282,6 @@ elif menu == "Export/Import":
         df_in.to_sql("baby_clothes", conn, if_exists="append", index=False)
         st.success("Data imported!")
         time.sleep(1)
-        st.experimental_rerun()
+        st.rerun()
 
 conn.close()
