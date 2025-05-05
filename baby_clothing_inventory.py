@@ -172,7 +172,7 @@ if menu == "Add Item":
             st.success("Item added!")
             time.sleep(1)
             st.session_state.reset_add_item = not st.session_state.reset_add_item
-            st.experimental_rerun()
+            st.rerun()
 
 # --- 2. View Inventory ---
 elif menu == "View Inventory":
@@ -250,6 +250,6 @@ elif menu == "Export/Import":
         df2 = pd.read_csv(up)
         df2.to_sql("baby_clothes", conn, if_exists="append", index=False)
         st.success("Imported!")
-        st.experimental_rerun()
+        st.rerun()
 
 conn.close()
