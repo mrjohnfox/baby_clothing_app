@@ -113,6 +113,47 @@ def show_image_bytes(path: str, caption: str = ""):
         st.warning(f"Could not load image: {e}")
 
 # 1. Add Item
+import base64
+import requests
+
+GITHUB_TOKEN = "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"
+GITHUB_REPO = "mrjohnfox/baby_clothing_app"
+GITHUB_PHOTO_FOLDER = "baby_clothes_photos"
+GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{GITHUB_PHOTO_FOLDER}"
+
+def upload_image_to_github(image_bytes, filename):
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json"
+    }
+
+    url = f"{GITHUB_API_URL}/{filename}"
+    content = base64.b64encode(image_bytes).decode("utf-8")
+
+    # Step 1: Check if file exists to get the SHA
+    get_resp = requests.get(url, headers=headers)
+    if get_resp.status_code == 200:
+        sha = get_resp.json().get("sha")
+    else:
+        sha = None
+
+    # Step 2: Upload or update with/without SHA
+    data = {
+        "message": f"Upload {filename}",
+        "content": content
+    }
+    if sha:
+        data["sha"] = sha
+
+    put_resp = requests.put(url, headers=headers, json=data)
+
+    if put_resp.status_code in [200, 201]:
+        return f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/{GITHUB_PHOTO_FOLDER}/{filename}"
+    else:
+        st.error(f"GitHub upload failed: {put_resp.json()}")
+        return None
+
+# --- Add Item Section ---
 if menu == "Add Item":
     st.title("Add New Baby Clothing Item")
     if "reset_add_item" not in st.session_state:
@@ -161,21 +202,20 @@ if menu == "Add Item":
                 st.error("Please upload or take a photo.")
                 st.stop()
 
-            github_url = upload_to_github(photo_data, filename)
-            if not github_url:
-                st.stop()
+            # Upload to GitHub
+            github_url = upload_image_to_github(photo_data, filename)
+            if github_url:
+                cursor.execute(
+                    "INSERT INTO baby_clothes (category, age_range, photo_path, description) VALUES (?, ?, ?, ?)",
+                    (category, age_range, github_url, description),
+                )
+                conn.commit()
 
-            cursor.execute(
-                "INSERT INTO baby_clothes (category, age_range, photo_path, description) VALUES (?, ?, ?, ?)",
-                (category, age_range, github_url, description),
-            )
-            conn.commit()
-
-            st.success("Baby clothing item added successfully!")
-            time.sleep(2)
-            st.session_state.reset_add_item = not st.session_state.reset_add_item
-            st.rerun()
-
+                st.success("Baby clothing item added and photo saved to GitHub!")
+                time.sleep(2)
+                st.session_state.reset_add_item = not st.session_state.reset_add_item
+                st.rerun()
+                
 # 2. View Inventory
 elif menu == "View Inventory":
     st.title("View Inventory")
