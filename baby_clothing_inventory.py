@@ -5,11 +5,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 import time
-from PIL import Image
 import requests
 import base64
+from io import BytesIO
+from PIL import Image as PILImage
 
-# --- GitHub upload helper (no changes) ---
+# --- GitHub upload helper ---
 GITHUB_TOKEN = st.secrets["github"]["token"]
 GITHUB_REPO = "mrjohnfox/baby_clothing_app"
 GITHUB_PHOTO_FOLDER = "baby_clothes_photos"
@@ -20,27 +21,28 @@ def upload_image_to_github(image_bytes, filename):
         "Authorization": f"token {GITHUB_TOKEN}",
         "Accept": "application/vnd.github+json",
     }
-
     url = f"{GITHUB_API_URL}/{filename}"
     content = base64.b64encode(image_bytes).decode("utf-8")
 
-    # Step 1: Check if file exists to get the SHA
+    # get SHA if exists
     get_resp = requests.get(url, headers=headers)
     sha = get_resp.json().get("sha") if get_resp.status_code == 200 else None
 
-    # Step 2: Upload or update
     data = {"message": f"Upload {filename}", "content": content}
     if sha:
         data["sha"] = sha
 
     put_resp = requests.put(url, headers=headers, json=data)
     if put_resp.status_code in (200, 201):
-        return f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/{GITHUB_PHOTO_FOLDER}/{filename}"
+        return (
+            f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/"
+            f"{GITHUB_PHOTO_FOLDER}/{filename}"
+        )
     else:
         st.error(f"GitHub upload failed: {put_resp.json()}")
         return None
 
-# --- Page config & CSS (no changes) ---
+# --- Page config & responsive CSS ---
 st.set_page_config(
     page_title="Baby Clothing Inventory",
     layout="wide",
@@ -49,21 +51,20 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    /* Mobile‐first tweaks… */
     @media (max-width: 768px) {
       [data-testid="column"] { width:100% !important; display:block !important; }
-      button, .stButton>button { width:100% !important; margin:0.5rem 0 !important; font-size:1rem !important; padding:0.75rem !important; }
-      textarea, input, .stTextInput>div>input { font-size:1rem !important; }
-      .stPlotlyChart, .stPyplotContainer { padding:0 !important; }
+      button, .stButton>button { width:100% !important; margin:0.5rem 0!important; font-size:1rem!important; padding:0.75rem!important; }
+      textarea, input, .stTextInput>div>input { font-size:1rem!important; }
+      .stPlotlyChart, .stPyplotContainer { padding:0!important; }
     }
-    button { font-size:16px !important; padding:10px !important; }
-    .streamlit-expander { overflow-y:auto !important; max-height:300px; }
+    button { font-size:16px!important; padding:10px!important; }
+    .streamlit-expander { overflow-y:auto!important; max-height:300px; }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-# --- Database setup (no changes) ---
+# --- Database setup ---
 db_path = "baby_clothes_inventory.db"
 conn = sqlite3.connect(db_path, check_same_thread=False)
 cursor = conn.cursor()
@@ -84,49 +85,30 @@ cursor.execute(
 )
 conn.commit()
 
-# --- Sidebar (no changes) ---
+# --- Sidebar menu ---
 menu = st.sidebar.radio(
     "Menu",
     ["Add Item", "View Inventory", "Search & Manage", "Visualize Data", "Gallery", "Export/Import"],
     index=0,
 )
 
-# --- Image helper and alias ---
-from io import BytesIO
-from PIL import Image as PILImage
-
-@st.cache_data
-def load_and_prepare_image(path: str) -> bytes:
-    filename = os.path.basename(path.replace("\\", "/").strip())
-    full_path = os.path.join(photos_dir, filename)
-    img = PILImage.open(full_path)
-    if img.mode != "RGB":
-        img = img.convert("RGB")
-    max_w = 400
-    if img.width > max_w:
-        ratio = max_w / img.width
-        img = img.resize((max_w, int(img.height * ratio)), PILImage.LANCZOS)
-    buf = BytesIO()
-    img.save(buf, format="JPEG", quality=85)
-    return buf.getvalue()
-
+# --- Image helper (FIXED) ---
 def show_image(path: str, caption: str = ""):
     try:
         if path.startswith("http"):
             st.image(path, use_container_width=True, caption=caption)
         else:
-            filename = os.path.basename(path)
+            # always strip to the base filename, then look in photos_dir
+            filename = os.path.basename(path.replace("\\", "/"))
             local_file = os.path.join(photos_dir, filename)
             if os.path.exists(local_file):
                 st.image(local_file, use_container_width=True, caption=caption)
-            elif os.path.exists(path):
-                st.image(path, use_container_width=True, caption=caption)
             else:
                 st.warning(f"Image file not found: {filename}")
     except Exception as e:
         st.warning(f"Could not load image: {e}")
 
-# alias the old name so existing calls still work
+# alias for any old calls
 show_image_bytes = show_image
 
 # --- 1. Add Item ---
@@ -162,7 +144,9 @@ if menu == "Add Item":
         description = st.text_area("Description", key="form_description")
 
         st.write("### Upload a Photo or Take a Photo")
-        uploaded_file = st.file_uploader("Upload Photo", type=["jpg", "png"], key="form_uploaded_file")
+        uploaded_file = st.file_uploader(
+            "Upload Photo", type=["jpg", "png"], key="form_uploaded_file"
+        )
         camera_file = st.camera_input("Take a Photo")
 
         submit = st.form_submit_button("Add Item")
@@ -181,11 +165,12 @@ if menu == "Add Item":
             github_url = upload_image_to_github(photo_data, filename)
             if github_url:
                 cursor.execute(
-                    "INSERT INTO baby_clothes (category, age_range, photo_path, description) VALUES (?, ?, ?, ?)",
+                    "INSERT INTO baby_clothes (category, age_range, photo_path, description) "
+                    "VALUES (?, ?, ?, ?)",
                     (category, age_range, github_url, description),
                 )
                 conn.commit()
-                st.success("Baby clothing item added and photo saved to GitHub!")
+                st.success("Added! Photo saved to GitHub.")
                 time.sleep(2)
                 st.session_state.reset_add_item = not st.session_state.reset_add_item
                 st.rerun()
@@ -346,5 +331,4 @@ elif menu == "Export/Import":
         except Exception as e:
             st.error(f"An error occurred: {e}")
 
-# --- Close connection ---
 conn.close()
