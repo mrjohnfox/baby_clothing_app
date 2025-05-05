@@ -23,7 +23,7 @@ def upload_image_to_github(image_bytes, filename):
     }
     url = f"{GITHUB_API_URL}/{filename}"
     content = base64.b64encode(image_bytes).decode("utf-8")
-    # fetch existing SHA
+    # Fetch existing SHA if present
     get_resp = requests.get(url, headers=headers)
     sha = get_resp.json().get("sha") if get_resp.status_code == 200 else None
     data = {"message": f"Upload {filename}", "content": content}
@@ -36,7 +36,7 @@ def upload_image_to_github(image_bytes, filename):
         st.error(f"GitHub upload failed: {put_resp.json()}")
         return None
 
-# --- Page config & CSS ---
+# --- Page config & responsive CSS ---
 st.set_page_config(
     page_title="Baby Clothing Inventory",
     layout="wide",
@@ -87,85 +87,104 @@ def show_image(path: str, caption: str = ""):
         if path.startswith("http"):
             st.image(path, use_container_width=True, caption=caption)
         else:
-            filename   = os.path.basename(path.replace("\\","/"))
-            local_file = os.path.join(photos_dir, filename)
+            fn         = os.path.basename(path.replace("\\","/"))
+            local_file = os.path.join(photos_dir, fn)
             if os.path.exists(local_file):
                 st.image(local_file, use_container_width=True, caption=caption)
             else:
-                st.warning(f"Image file not found: {filename}")
+                st.warning(f"Image file not found: {fn}")
     except Exception as e:
         st.warning(f"Could not load image: {e}")
 
-show_image_bytes = show_image  # alias for legacy calls
+show_image_bytes = show_image  # alias
 
 # --- 1. Add Item ---
 if menu == "Add Item":
     st.title("Add New Baby Clothing Item")
+
+    # reset flag toggles the form keys so they clear
     if "reset_add_item" not in st.session_state:
         st.session_state.reset_add_item = False
-    form_key = f"add_item_form_{st.session_state.reset_add_item}"
+    reset_flag  = st.session_state.reset_add_item
+    form_key     = f"add_item_form_{reset_flag}"
+    camera_key   = f"form_camera_{reset_flag}"
+    upload_key   = f"form_upload_{reset_flag}"
 
     with st.form(key=form_key):
+        # 1) camera first
+        camera_file = st.camera_input("📷 Take a Photo", key=camera_key)
+        # 2) then upload
+        uploaded_file = st.file_uploader("Or upload a Photo", type=["jpg","png"], key=upload_key)
+
+        # 3) metadata
         cols = st.columns(2)
         with cols[0]:
             category = st.selectbox(
                 "Category",
-                ["Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
-                 "Jumpers","Accessories","Shoes","Sleepwear","Sets",
-                 "Home","Food Prep","Dungarees"],
+                [
+                    "Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
+                    "Jumpers","Accessories","Shoes","Sleepwear","Sets",
+                    "Home","Food Prep","Dungarees"
+                ],
                 key="form_category",
             )
         with cols[1]:
             age_range = st.selectbox(
                 "Age Range",
-                ["0–3 months","3–6 months","6–9 months","9–12 months",
-                 "12–18 months","18–24 months","24–36 months",
-                 "3–4 years","4–5 years","5–6 years","No age"],
+                [
+                    "0–3 months","3–6 months","6–9 months","9–12 months",
+                    "12–18 months","18–24 months","24–36 months",
+                    "3–4 years","4–5 years","5–6 years","No age"
+                ],
                 key="form_age_range",
             )
 
-        description   = st.text_area("Description", key="form_description")
-        uploaded_file = st.file_uploader("Upload Photo", type=["jpg","png"], key="form_uploaded_file")
-        camera_file   = st.camera_input("Take a Photo", key="form_camera_file")
+        description = st.text_area("Description", key="form_description")
+        submit      = st.form_submit_button("Add Item")
 
-        submit = st.form_submit_button("Add Item")
-
+    # Handle the submission _after_ closing the with‐block
     if submit:
-        # pick camera first
-        if camera_file is not None:
+        if camera_file:
             photo_data = camera_file.getvalue()
             filename   = f"{int(time.time()*1000)}.jpg"
-        elif uploaded_file is not None:
+        elif uploaded_file:
             photo_data = uploaded_file.read()
             filename   = uploaded_file.name
         else:
-            st.error("Please upload or take a photo.")
+            st.error("Please either take a photo or upload one.")
             st.stop()
 
-        # 1) save locally & INSERT
+        # Save locally & INSERT
         local_path = os.path.join(photos_dir, filename)
         with open(local_path, "wb") as f:
             f.write(photo_data)
 
         cursor.execute(
             "INSERT INTO baby_clothes (category, age_range, photo_path, description) VALUES (?, ?, ?, ?)",
-            (category, age_range, local_path, description),
+            (category, age_range, local_path, description)
         )
         conn.commit()
-        row_id = cursor.lastrowid
+        new_id = cursor.lastrowid
 
-        # 2) upload to GitHub & UPDATE
+        # Try GitHub upload & UPDATE
         gh_url = upload_image_to_github(photo_data, filename)
         if gh_url:
             cursor.execute(
                 "UPDATE baby_clothes SET photo_path = ? WHERE id = ?",
-                (gh_url, row_id),
+                (gh_url, new_id)
             )
             conn.commit()
 
-        st.success("Baby clothing item added!")
+        st.success("Item added successfully!")
         time.sleep(1)
-        st.session_state.reset_add_item = not st.session_state.reset_add_item
+
+        # Clear the old form keys
+        for k in (camera_key, upload_key, "form_category", "form_age_range", "form_description"):
+            if k in st.session_state:
+                del st.session_state[k]
+        # Toggle our reset flag to force new keys next render
+        st.session_state.reset_add_item = not reset_flag
+
         st.rerun()
 
 # --- 2. View Inventory ---
@@ -175,7 +194,7 @@ elif menu == "View Inventory":
     if df.empty:
         st.info("No items in inventory.")
     else:
-        for cat in df["category"].unique():
+        for cat in sorted(df["category"].unique()):
             with st.expander(cat):
                 items = df[df["category"] == cat]
                 cols  = st.columns(min(3, len(items)))
@@ -199,8 +218,10 @@ elif menu == "Search & Manage":
         sel_ages = st.multiselect("Age Range", options=ages, default=[])
         txt      = st.text_input("Search Description…")
 
-        if not sel_cats: sel_cats = cats
-        if not sel_ages: sel_ages = ages
+        if not sel_cats:
+            sel_cats = cats
+        if not sel_ages:
+            sel_ages = ages
 
         filt = df[df["category"].isin(sel_cats) & df["age_range"].isin(sel_ages)]
         if txt:
@@ -208,7 +229,7 @@ elif menu == "Search & Manage":
 
         st.write(f"Showing {len(filt)} of {len(df)} items")
         if filt.empty:
-            st.warning("No items match those filters.")
+            st.warning("No items match.")
         else:
             for _, row in filt.iterrows():
                 with st.expander(f"{row['category']} ({row['age_range']})"):
