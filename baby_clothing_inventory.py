@@ -182,7 +182,7 @@ if menu == "Add Item":
             st.success("Item added!")
             time.sleep(1)
             st.session_state.reset_add_item = not st.session_state.reset_add_item
-            st.experimental_rerun()
+            st.rerun()
 
 # --- 2. View Inventory ---
 elif menu == "View Inventory":
@@ -235,7 +235,7 @@ elif menu == "Search & Manage":
                     if st.button("🗑️ Delete", key=btn_delete_key):
                         cursor.execute("DELETE FROM baby_clothes WHERE id=?", (row["id"],))
                         conn.commit()
-                        st.experimental_rerun()
+                        st.rerun()
                 if st.session_state.get(edit_key, False):
                     with st.form(key=f"form_edit_{row['id']}"):
                         new_cat  = st.selectbox("Category", cats, index=cats.index(row["category"]))
@@ -251,7 +251,7 @@ elif menu == "Search & Manage":
                                 (new_cat, new_age, new_desc, row["id"]),
                             )
                             conn.commit()
-                            st.experimental_rerun()
+                            st.rerun()
 
 # --- 4. Visualize Data ---
 elif menu == "Visualize Data":
@@ -288,6 +288,6 @@ elif menu == "Export/Import":
         df2 = pd.read_csv(up)
         df2.to_sql("baby_clothes", conn, if_exists="append", index=False)
         st.success("Imported!")
-        st.experimental_rerun()
+        st.rerun()
 
 conn.close()
