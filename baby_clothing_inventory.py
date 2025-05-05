@@ -9,29 +9,36 @@ from PIL import Image
 import requests
 import base64
 
-def upload_to_github(file_bytes, filename):
-    token = st.secrets["github"]["token"]
-    st.write("🔐 Token starts with:", token[:6])
-    repo = st.secrets["github"]["repo"]
-    path = st.secrets["github"]["path"]
-    api_url = f"https://api.github.com/repos/{repo}/contents/{path}/{filename}"
-    
+def upload_image_to_github(image_bytes, filename):
     headers = {
-        "Authorization": f"token {token}",
+        "Authorization": f"token {GITHUB_TOKEN}",
         "Accept": "application/vnd.github+json"
     }
 
-    content = base64.b64encode(file_bytes).decode("utf-8")
+    url = f"{GITHUB_API_URL}/{filename}"
+    content = base64.b64encode(image_bytes).decode("utf-8")
+
+    # Step 1: Check if file exists to get the SHA
+    get_resp = requests.get(url, headers=headers)
+    if get_resp.status_code == 200:
+        sha = get_resp.json().get("sha")
+    else:
+        sha = None
+
+    # Step 2: Upload or update with/without SHA
     data = {
-        "message": f"Add {filename}",
+        "message": f"Upload {filename}",
         "content": content
     }
+    if sha:
+        data["sha"] = sha
 
-    response = requests.put(api_url, headers=headers, json=data)
-    if response.status_code == 201:
+    put_resp = requests.put(url, headers=headers, json=data)
+
+    if put_resp.status_code in [200, 201]:
         return f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/{GITHUB_PHOTO_FOLDER}/{filename}"
     else:
-        st.error(f"GitHub upload failed: {response.json()}")
+        st.error(f"GitHub upload failed: {put_resp.json()}")
         return None
 
 # Page config and responsive CSS
