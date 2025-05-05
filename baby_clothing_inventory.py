@@ -161,9 +161,9 @@ if menu == "Add Item":
                 st.error("Please upload or take a photo.")
                 st.stop()
 
-            local_path = os.path.join(photos_dir, filename)
-            with open(local_path, "wb") as f:
-                f.write(photo_data)
+            github_url = upload_to_github(photo_data, filename)
+            if not github_url:
+                st.stop()
 
             cursor.execute(
                 "INSERT INTO baby_clothes (category, age_range, photo_path, description) VALUES (?, ?, ?, ?)",
