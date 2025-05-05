@@ -108,8 +108,15 @@ def load_and_prepare_image(path: str) -> bytes:
 
 def show_image_bytes(path: str, caption: str = ""):
     try:
-        img_bytes = load_and_prepare_image(path)
-        st.image(img_bytes, use_container_width=True, caption=caption)
+        if path.startswith("http"):  # GitHub raw URL
+            response = requests.get(path)
+            if response.status_code == 200:
+                st.image(response.content, use_container_width=True, caption=caption)
+            else:
+                st.warning(f"Could not load image from GitHub URL: {response.status_code}")
+        else:  # local file
+            img_bytes = load_and_prepare_image(path)
+            st.image(img_bytes, use_container_width=True, caption=caption)
     except Exception as e:
         st.warning(f"Could not load image: {e}")
 
