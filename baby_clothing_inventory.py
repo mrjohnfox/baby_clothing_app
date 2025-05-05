@@ -14,12 +14,12 @@ from PIL import Image as PILImage
 
 # --- Paths & migration from repo into tempdir ---
 PROJECT_ROOT = os.getcwd()
-ORIG_DB = os.path.join(PROJECT_ROOT, "baby_clothes_inventory.db")
-ORIG_PHOTOS = os.path.join(PROJECT_ROOT, "baby_clothes_photos")
+ORIG_DB      = os.path.join(PROJECT_ROOT, "baby_clothes_inventory.db")
+ORIG_PHOTOS  = os.path.join(PROJECT_ROOT, "baby_clothes_photos")
 
-BASE_DIR = tempfile.gettempdir()
-DB_PATH = os.path.join(BASE_DIR, "baby_clothes_inventory.db")
-PHOTOS_DIR = os.path.join(BASE_DIR, "baby_clothes_photos")
+BASE_DIR     = tempfile.gettempdir()
+DB_PATH      = os.path.join(BASE_DIR, "baby_clothes_inventory.db")
+PHOTOS_DIR   = os.path.join(BASE_DIR, "baby_clothes_photos")
 
 # Copy DB if not already in temp
 if os.path.exists(ORIG_DB) and not os.path.exists(DB_PATH):
@@ -36,22 +36,22 @@ if os.path.exists(ORIG_PHOTOS):
             shutil.copyfile(src, dst)
 
 # --- GitHub upload helper ---
-GITHUB_TOKEN = st.secrets["github"]["token"]
-GITHUB_REPO = "mrjohnfox/baby_clothing_app"
+GITHUB_TOKEN        = st.secrets["github"]["token"]
+GITHUB_REPO         = "mrjohnfox/baby_clothing_app"
 GITHUB_PHOTO_FOLDER = "baby_clothes_photos"
-GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{GITHUB_PHOTO_FOLDER}"
+GITHUB_API_URL      = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{GITHUB_PHOTO_FOLDER}"
 
 def upload_image_to_github(image_bytes, filename):
     headers = {
         "Authorization": f"token {GITHUB_TOKEN}",
         "Accept": "application/vnd.github+json",
     }
-    url = f"{GITHUB_API_URL}/{filename}"
+    url     = f"{GITHUB_API_URL}/{filename}"
     content = base64.b64encode(image_bytes).decode("utf-8")
 
     # get SHA if exists
     get_resp = requests.get(url, headers=headers)
-    sha = get_resp.json().get("sha") if get_resp.status_code == 200 else None
+    sha      = get_resp.json().get("sha") if get_resp.status_code == 200 else None
 
     data = {"message": f"Upload {filename}", "content": content}
     if sha:
@@ -67,8 +67,8 @@ def upload_image_to_github(image_bytes, filename):
         st.error(f"GitHub upload failed: {put_resp.json()}")
         return None
 
-# --- Database setup ---
-conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+# --- Database setup (pointed at the writable copy) ---
+conn   = sqlite3.connect(DB_PATH, check_same_thread=False)
 cursor = conn.cursor()
 cursor.execute(
     """
@@ -83,7 +83,7 @@ cursor.execute(
 )
 conn.commit()
 
-# --- Streamlit page config & CSS ---
+# --- Streamlit page config & responsive CSS ---
 st.set_page_config(
     page_title="Baby Clothing Inventory",
     layout="wide",
@@ -105,7 +105,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- Sidebar ---
+# --- Sidebar menu ---
 menu = st.sidebar.radio(
     "Menu",
     ["Add Item", "View Inventory", "Search & Manage", "Visualize Data", "Gallery", "Export/Import"],
@@ -118,7 +118,7 @@ def show_image(path: str, caption: str = ""):
         if path.startswith("http"):
             st.image(path, use_container_width=True, caption=caption)
         else:
-            fn = os.path.basename(path)
+            fn    = os.path.basename(path)
             local = os.path.join(PHOTOS_DIR, fn)
             if os.path.exists(local):
                 st.image(local, use_container_width=True, caption=caption)
@@ -127,12 +127,15 @@ def show_image(path: str, caption: str = ""):
     except Exception as e:
         st.warning(f"Could not load image: {e}")
 
+show_image_bytes = show_image  # alias for backwards compatibility
+
 # --- 1. Add Item ---
 if menu == "Add Item":
     st.title("Add New Baby Clothing Item")
     if "reset_add_item" not in st.session_state:
         st.session_state.reset_add_item = False
     fk = f"form_{st.session_state.reset_add_item}"
+
     with st.form(key=fk):
         c1, c2 = st.columns(2)
         with c1:
@@ -152,6 +155,7 @@ if menu == "Add Item":
                 key="form_age_range"
             )
         description = st.text_area("Description", key="form_description")
+
         st.write("### Upload a Photo or Take a Photo")
         cam = st.camera_input("📷 Take a Photo", key="form_cam")
         upl = st.file_uploader("Upload Photo", type=["jpg","png"], key="form_upl")
@@ -160,28 +164,31 @@ if menu == "Add Item":
         if submit:
             if cam:
                 data = cam.getvalue()
-                fn = f"{int(time.time()*1000)}.jpg"
+                fn   = f"{int(time.time()*1000)}.jpg"
             elif upl:
                 data = upl.read()
-                fn = upl.name
+                fn   = upl.name
             else:
                 st.error("Please upload or take a photo.")
                 st.stop()
 
-            # write locally
+            # 1) write locally
             local_path = os.path.join(PHOTOS_DIR, fn)
             with open(local_path, "wb") as f:
                 f.write(data)
 
-            # insert into temp DB
+            # 2) insert into temp DB
             cursor.execute(
-                "INSERT INTO baby_clothes(category, age_range, photo_path, description) VALUES (?, ?, ?, ?)",
+                """
+                INSERT INTO baby_clothes(category, age_range, photo_path, description)
+                VALUES (?, ?, ?, ?)
+                """,
                 (category, age_range, local_path, description),
             )
             conn.commit()
             rid = cursor.lastrowid
 
-            # push to GitHub and update row
+            # 3) upload to GitHub, then update row’s path
             gh = upload_image_to_github(data, fn)
             if gh:
                 cursor.execute(
@@ -223,11 +230,14 @@ elif menu == "Search & Manage":
         sel_c = st.multiselect("Category", options=cats, default=[])
         sel_a = st.multiselect("Age Range", options=ages, default=[])
         tq    = st.text_input("Search Description…")
+
         if not sel_c: sel_c = cats
         if not sel_a: sel_a = ages
+
         filt = df[df["category"].isin(sel_c) & df["age_range"].isin(sel_a)]
         if tq:
             filt = filt[filt["description"].str.contains(tq, case=False, na=False)]
+
         st.write(f"Showing {len(filt)} of {len(df)} items")
         if filt.empty:
             st.warning("No matches")
@@ -244,21 +254,26 @@ elif menu == "Visualize Data":
         st.info("No data to visualize.")
     else:
         st.subheader("Items by Category")
-        fig, ax = plt.subplots(); df['category'].value_counts().plot.bar(ax=ax); st.pyplot(fig)
+        fig, ax = plt.subplots()
+        df["category"].value_counts().plot.bar(ax=ax)
+        st.pyplot(fig)
+
         st.subheader("Age Range Distribution")
-        fig2, ax2 = plt.subplots(); df['age_range'].value_counts().plot.pie(ax=ax2,autopct='%1.1f%%'); st.pyplot(fig2)
+        fig2, ax2 = plt.subplots()
+        df["age_range"].value_counts().plot.pie(ax=ax2, autopct="%1.1f%%")
+        st.pyplot(fig2)
 
 # --- 5. Gallery ---
 elif menu == "Gallery":
     st.title("Photo Gallery")
     df = pd.read_sql("SELECT * FROM baby_clothes", conn)
     if df.empty:
-        st.info("No photos.")
+        st.info("No photos available.")
     else:
         cols = st.columns(3)
         for i, row in df.iterrows():
-            with cols[i % 3]:
-                show_image(row['photo_path'], f"{row['category']} ({row['age_range']})")
+            with cols[i % len(cols)]:
+                show_image(row["photo_path"], f"{row['category']} ({row['age_range']})")
 
 # --- 6. Export/Import ---
 elif menu == "Export/Import":
