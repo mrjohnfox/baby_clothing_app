@@ -116,6 +116,7 @@ if menu == "Add Item":
         st.session_state.reset_add_item = False
     form_key = f"add_item_form_{st.session_state.reset_add_item}"
 
+    # Capture camera & upload outside logic
     with st.form(key=form_key):
         cols = st.columns(2)
         with cols[0]:
@@ -142,10 +143,8 @@ if menu == "Add Item":
         description = st.text_area("Description", key="form_description")
 
         st.write("### Upload a Photo or Take a Photo")
-        uploaded_file = st.file_uploader(
-            "Upload Photo", type=["jpg", "png"], key="form_uploaded_file"
-        )
-        camera_file = st.camera_input("Take a Photo")
+        camera_file = st.camera_input("Take a Photo", key="form_camera_file")
+        uploaded_file = st.file_uploader("Upload Photo", type=["jpg", "png"], key="form_uploaded_file")
 
         submit = st.form_submit_button("Add Item")
 
@@ -161,7 +160,7 @@ if menu == "Add Item":
                 st.error("Please upload or take a photo.")
                 st.stop()
 
-            # 2) write it locally & insert unconditionally
+            # 2) write locally & insert unconditionally
             local_path = os.path.join(photos_dir, filename)
             with open(local_path, "wb") as f:
                 f.write(photo_data)
@@ -174,7 +173,7 @@ if menu == "Add Item":
             conn.commit()
             row_id = cursor.lastrowid
 
-            # 3) now try GitHub — if that works, update just the photo_path
+            # 3) try GitHub upload & update if successful
             github_url = upload_image_to_github(photo_data, filename)
             if github_url:
                 cursor.execute(
@@ -186,7 +185,7 @@ if menu == "Add Item":
             st.success("Baby clothing item added!")
             time.sleep(1)
             st.session_state.reset_add_item = not st.session_state.reset_add_item
-            st.rerun()
+            st.experimental_rerun()
 
 # --- 2. View Inventory ---
 elif menu == "View Inventory":
@@ -249,52 +248,36 @@ elif menu == "Search & Manage":
                         with st.form(key=f"edit_form_{row['id']}"):
                             new_category = st.selectbox(
                                 "Category",
-                                [
-                                    "Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
-                                    "Jumpers","Accessories","Shoes","Sleepwear","Sets",
-                                    "Home","Food Prep","Dungarees"
-                                ],
-                                index=[
-                                    "Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
-                                    "Jumpers","Accessories","Shoes","Sleepwear","Sets",
-                                    "Home","Food Prep","Dungarees"
-                                ].index(row["category"]),
+                                cat_options,
+                                index=cat_options.index(row["category"]),
                             )
                             new_age_range = st.selectbox(
                                 "Age Range",
-                                [
-                                    "0–3 months","3–6 months","6–9 months","9–12 months",
-                                    "12–18 months","18–24 months","24–36 months",
-                                    "3–4 years","4–5 years","5–6 years","No age"
-                                ],
-                                index=[
-                                    "0–3 months","3–6 months","6–9 months","9–12 months",
-                                    "12–18 months","18–24 months","24–36 months",
-                                    "3–4 years","4–5 years","5–6 years","No age"
-                                ].index(row["age_range"]),
+                                age_options,
+                                index=age_options.index(row["age_range"]),
                             )
                             new_description = st.text_area("Description", row["description"])
                             if st.form_submit_button("Save Changes"):
                                 cursor.execute(
                                     """
                                     UPDATE baby_clothes
-                                    SET category = ?, age_range = ?, description = ?
-                                    WHERE id = ?
+                                    SET category=?, age_range=?, description=?
+                                    WHERE id=?
                                     """,
                                     (new_category, new_age_range, new_description, row["id"]),
                                 )
                                 conn.commit()
                                 st.success("Item updated successfully!")
-                                time.sleep(2)
-                                st.rerun()
+                                time.sleep(1)
+                                st.experimental_rerun()
 
                     delete_key = f"delete_{row['id']}"
                     if st.button(f"Delete Item {row['id']}", key=delete_key):
-                        cursor.execute("DELETE FROM baby_clothes WHERE id = ?", (row["id"],))
+                        cursor.execute("DELETE FROM baby_clothes WHERE id=?", (row["id"],))
                         conn.commit()
                         st.warning("Item deleted successfully!")
-                        time.sleep(2)
-                        st.rerun()
+                        time.sleep(1)
+                        st.experimental_rerun()
 
 # --- 4. Visualize Data ---
 elif menu == "Visualize Data":
@@ -340,8 +323,9 @@ elif menu == "Export/Import":
             imported.to_sql("baby_clothes", conn, if_exists="append", index=False)
             st.success("Data imported successfully!")
             time.sleep(1)
-            st.rerun()
+            st.experimental_rerun()
         except Exception as e:
             st.error(f"An error occurred: {e}")
 
+# Close connection
 conn.close()
