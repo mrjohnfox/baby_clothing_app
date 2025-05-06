@@ -192,6 +192,11 @@ if menu == "Add Item":
                 )
                 conn.commit()
 
+            # 4) ✂️ Re-open the DB so all subsequent reads see the new row
+            conn.close()
+            conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+            cursor = conn.cursor()
+
             st.success("Item added!")
 
             # flip the reset‐flag so all keys change on rerun → clears form
