@@ -16,8 +16,8 @@ from supabase import create_client, Client
 from supabase import create_client, Client
 
 # --- Supabase client setup ---
-SUPABASE_URL = st.secrets["supabase_url"]
-SUPABASE_KEY = st.secrets["supabase_key"]
+SUPABASE_URL = st.secrets["supabase"]["url"]
+SUPABASE_KEY = st.secrets["supabase"]["key"]
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- GitHub upload helper (unchanged) ---
