@@ -10,11 +10,30 @@ import base64
 from io import BytesIO
 from PIL import Image as PILImage
 
-# --- Paths & storage in repo folder (persistent between restarts) ---
+# --- Paths & storage under /mnt/data (writable & persistent) ---
 PROJECT_ROOT = os.getcwd()
-DB_PATH      = os.path.join(PROJECT_ROOT, "baby_clothes_inventory.db")
-PHOTOS_DIR   = os.path.join(PROJECT_ROOT, "baby_clothes_photos")
+ORIG_DB      = os.path.join(PROJECT_ROOT, "baby_clothes_inventory.db")
+ORIG_PHOTOS  = os.path.join(PROJECT_ROOT, "baby_clothes_photos")
+
+# Use Streamlit's data directory
+DATA_DIR    = "/mnt/data"
+DB_PATH     = os.path.join(DATA_DIR,    "baby_clothes_inventory.db")
+PHOTOS_DIR  = os.path.join(DATA_DIR,    "baby_clothes_photos")
+
+# 1) ensure our data dir exists
 os.makedirs(PHOTOS_DIR, exist_ok=True)
+
+# 2) copy the original DB into /mnt/data if it's not already there
+if os.path.exists(ORIG_DB) and not os.path.exists(DB_PATH):
+    shutil.copyfile(ORIG_DB, DB_PATH)
+
+# 3) copy any shipped photos into /mnt/data if not already present
+if os.path.isdir(ORIG_PHOTOS):
+    for fname in os.listdir(ORIG_PHOTOS):
+        src = os.path.join(ORIG_PHOTOS, fname)
+        dst = os.path.join(PHOTOS_DIR, fname)
+        if os.path.isfile(src) and not os.path.exists(dst):
+            shutil.copyfile(src, dst)
 
 # --- GitHub upload helper (unchanged) ---
 GITHUB_TOKEN        = st.secrets["github"]["token"]
