@@ -7,7 +7,6 @@ import os
 import time
 import requests
 import base64
-import shutil
 from io import BytesIO
 from PIL import Image as PILImage
 
@@ -45,7 +44,7 @@ def upload_image_to_github(image_bytes, filename):
         st.error(f"GitHub upload failed: {put_resp.json()}")
         return None
 
-# --- Database setup ---
+# --- Single persistent connection for writes ---
 conn   = sqlite3.connect(DB_PATH, check_same_thread=False)
 cursor = conn.cursor()
 cursor.execute(
@@ -60,6 +59,11 @@ cursor.execute(
     """
 )
 conn.commit()
+
+# --- Helper to always read fresh inventory ---
+def read_inventory():
+    with sqlite3.connect(DB_PATH, check_same_thread=False) as con:
+        return pd.read_sql("SELECT * FROM baby_clothes", con)
 
 # --- Page config & CSS ---
 st.set_page_config(
@@ -96,7 +100,6 @@ def show_image(path: str, caption: str = ""):
         if path.startswith("http"):
             st.image(path, use_container_width=True, caption=caption)
         else:
-            # normalize Windows backslashes, then basename
             fn    = os.path.basename(path.replace("\\", "/"))
             local = os.path.join(PHOTOS_DIR, fn)
             if os.path.exists(local):
@@ -110,52 +113,35 @@ def show_image(path: str, caption: str = ""):
 if menu == "Add Item":
     st.title("Add New Baby Clothing Item")
 
-    # this flag drives our dynamic widget-keys
     if "reset_add_item" not in st.session_state:
         st.session_state.reset_add_item = False
     reset = st.session_state.reset_add_item
-
-    # build a form whose key changes whenever reset flips
     form_key = f"add_item_form_{reset}"
+
     with st.form(key=form_key):
         cols = st.columns(2)
         with cols[0]:
             category = st.selectbox(
                 "Category",
-                [
-                    "Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
-                    "Jumpers","Accessories","Shoes","Sleepwear","Sets",
-                    "Home","Food Prep","Dungarees"
-                ],
+                ["Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
+                 "Jumpers","Accessories","Shoes","Sleepwear","Sets",
+                 "Home","Food Prep","Dungarees"],
                 key=f"form_category_{reset}",
             )
         with cols[1]:
             age_range = st.selectbox(
                 "Age Range",
-                [
-                    "0–3 months","3–6 months","6–9 months","9–12 months",
-                    "12–18 months","18–24 months","24–36 months",
-                    "3–4 years","4–5 years","5–6 years","No age"
-                ],
+                ["0–3 months","3–6 months","6–9 months","9–12 months",
+                 "12–18 months","18–24 months","24–36 months",
+                 "3–4 years","4–5 years","5–6 years","No age"],
                 key=f"form_age_range_{reset}",
             )
 
-        description = st.text_area(
-            "Description",
-            key=f"form_description_{reset}",
-        )
+        description = st.text_area("Description", key=f"form_description_{reset}")
 
         st.write("### Upload a Photo or Take a Photo")
-        cam = st.camera_input(
-            "📷 Take a Photo",
-            key=f"form_cam_{reset}"
-        )
-        upl = st.file_uploader(
-            "Upload Photo",
-            type=["jpg","png"],
-            key=f"form_upl_{reset}"
-        )
-
+        cam = st.camera_input("📷 Take a Photo", key=f"form_cam_{reset}")
+        upl = st.file_uploader("Upload Photo", type=["jpg","png"], key=f"form_upl_{reset}")
         submit = st.form_submit_button("Add Item")
 
         if submit:
@@ -192,14 +178,9 @@ if menu == "Add Item":
                 )
                 conn.commit()
 
-            # 4) ✂️ Re-open the DB so all subsequent reads see the new row
-            conn.close()
-            conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-            cursor = conn.cursor()
-
             st.success("Item added!")
 
-            # flip the reset‐flag so all keys change on rerun → clears form
+            # flip flag so form clears on next render
             st.session_state.reset_add_item = not reset
             time.sleep(1)
             st.rerun()
@@ -207,7 +188,7 @@ if menu == "Add Item":
 # --- 2. View Inventory ---
 elif menu == "View Inventory":
     st.title("View Inventory")
-    df = pd.read_sql("SELECT * FROM baby_clothes", conn)
+    df = read_inventory()
     if df.empty:
         st.info("No items in inventory.")
     else:
@@ -223,7 +204,7 @@ elif menu == "View Inventory":
 # --- 3. Search & Manage ---
 elif menu == "Search & Manage":
     st.title("Search & Manage Inventory")
-    df = pd.read_sql("SELECT * FROM baby_clothes", conn)
+    df = read_inventory()
     if df.empty:
         st.info("No items to manage.")
     else:
@@ -233,10 +214,8 @@ elif menu == "Search & Manage":
         sel_a = st.multiselect("Age Range", options=ages, default=[])
         tq    = st.text_input("Search Description…")
 
-        if not sel_c:
-            sel_c = cats
-        if not sel_a:
-            sel_a = ages
+        if not sel_c: sel_c = cats
+        if not sel_a: sel_a = ages
 
         filt = df[df["category"].isin(sel_c) & df["age_range"].isin(sel_a)]
         if tq:
@@ -253,7 +232,7 @@ elif menu == "Search & Manage":
 # --- 4. Visualize Data ---
 elif menu == "Visualize Data":
     st.title("Visualize Inventory Data")
-    df = pd.read_sql("SELECT * FROM baby_clothes", conn)
+    df = read_inventory()
     if df.empty:
         st.info("No data to visualize.")
     else:
@@ -270,7 +249,7 @@ elif menu == "Visualize Data":
 # --- 5. Gallery ---
 elif menu == "Gallery":
     st.title("Photo Gallery")
-    df = pd.read_sql("SELECT * FROM baby_clothes", conn)
+    df = read_inventory()
     if df.empty:
         st.info("No photos available.")
     else:
@@ -283,7 +262,7 @@ elif menu == "Gallery":
 elif menu == "Export/Import":
     st.title("Export / Import")
     if st.button("Export CSV"):
-        df = pd.read_sql("SELECT * FROM baby_clothes", conn)
+        df = read_inventory()
         st.download_button("Download", df.to_csv(index=False), "inventory.csv")
     up = st.file_uploader("Upload CSV to import", type="csv")
     if up:
