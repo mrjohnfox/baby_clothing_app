@@ -140,12 +140,12 @@ if menu == "Add Item":
             st.error("Please provide a photo.")
             st.stop()
 
-        # upload to GitHub
+        # 1) upload to GitHub
         gh_url = upload_image_to_github(img_bytes, fn)
         if not gh_url:
             st.stop()
 
-        # insert into Supabase
+        # 2) insert into Supabase
         supabase.table("baby_clothes").insert({
             "category":    category,
             "age_range":   age_range,
@@ -153,8 +153,11 @@ if menu == "Add Item":
             "description": description,
         }).execute()
 
+        # 🔥 Clear cache so read_inventory() will re-fetch
+        read_inventory.clear()
+
         st.success("Item added!")
-        # clear form
+        # reset/clear form on rerun
         st.session_state.reset_add_item = not reset
         st.rerun()
 
