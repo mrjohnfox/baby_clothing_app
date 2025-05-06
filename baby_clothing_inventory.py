@@ -10,21 +10,41 @@ import base64
 from io import BytesIO
 from PIL import Image as PILImage
 
-# --- Paths & storage under /mnt/data (writable & persistent) ---
-PROJECT_ROOT = os.getcwd()
-ORIG_DB      = os.path.join(PROJECT_ROOT, "baby_clothes_inventory.db")
-ORIG_PHOTOS  = os.path.join(PROJECT_ROOT, "baby_clothes_photos")
+import tempfile
+import shutil
 
-# Use Streamlit's data directory (or a local 'data' folder if you prefer)
-DATA_DIR   = "/mnt/data"
-# 1) ensure the base data dir exists first
+# --- Paths & storage under a data folder inside your repo (or /tmp) ---
+PROJECT_ROOT = os.getcwd()
+
+# You can either write under your own project...
+DATA_DIR = os.path.join(PROJECT_ROOT, "data")
+
+# …or, if you prefer the system temp area:
+# DATA_DIR = os.path.join(tempfile.gettempdir(), "baby_clothing_data")
+
+# 1) make sure the base data dir exists
 os.makedirs(DATA_DIR, exist_ok=True)
 
+# 2) define your DB and photos inside it
 DB_PATH    = os.path.join(DATA_DIR, "baby_clothes_inventory.db")
 PHOTOS_DIR = os.path.join(DATA_DIR, "baby_clothes_photos")
 
-# 2) now create the photos folder
+# 3) now create the photos folder
 os.makedirs(PHOTOS_DIR, exist_ok=True)
+
+# 4) if you have an original DB/shippped photos, copy them in
+ORIG_DB     = os.path.join(PROJECT_ROOT, "baby_clothes_inventory.db")
+ORIG_PHOTOS = os.path.join(PROJECT_ROOT, "baby_clothes_photos")
+
+if os.path.exists(ORIG_DB) and not os.path.exists(DB_PATH):
+    shutil.copyfile(ORIG_DB, DB_PATH)
+
+if os.path.isdir(ORIG_PHOTOS):
+    for fname in os.listdir(ORIG_PHOTOS):
+        src = os.path.join(ORIG_PHOTOS, fname)
+        dst = os.path.join(PHOTOS_DIR, fname)
+        if os.path.isfile(src) and not os.path.exists(dst):
+            shutil.copyfile(src, dst)
 
 # 2) copy the original DB into /mnt/data if it's not already there
 if os.path.exists(ORIG_DB) and not os.path.exists(DB_PATH):
