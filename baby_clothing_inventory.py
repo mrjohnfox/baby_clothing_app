@@ -7,16 +7,33 @@ import os
 import time
 import requests
 import base64
+import tempfile
 import shutil
 from io import BytesIO
 from PIL import Image as PILImage
 
-# --- Paths ---
+# --- Paths & a writable copy in tempdir ---
 PROJECT_ROOT = os.getcwd()
-DB_PATH      = os.path.join(PROJECT_ROOT, "baby_clothes_inventory.db")
-PHOTOS_DIR   = os.path.join(PROJECT_ROOT, "baby_clothes_photos")
+WORKING_DIR  = tempfile.gettempdir()
+ORIG_DB      = os.path.join(PROJECT_ROOT, "baby_clothes_inventory.db")
+ORIG_PHOTOS  = os.path.join(PROJECT_ROOT, "baby_clothes_photos")
 
+# this is where we'll actually read/write during runtime
+DB_PATH    = os.path.join(WORKING_DIR,    "baby_clothes_inventory.db")
+PHOTOS_DIR = os.path.join(WORKING_DIR,    "baby_clothes_photos")
+
+# 1) Copy your repo’s DB into the temp dir (once)
+if os.path.exists(ORIG_DB) and not os.path.exists(DB_PATH):
+    shutil.copyfile(ORIG_DB, DB_PATH)
+
+# 2) Mirror the photos folder into temp
 os.makedirs(PHOTOS_DIR, exist_ok=True)
+if os.path.exists(ORIG_PHOTOS):
+    for fname in os.listdir(ORIG_PHOTOS):
+        src = os.path.join(ORIG_PHOTOS, fname)
+        dst = os.path.join(PHOTOS_DIR,   fname)
+        if os.path.isfile(src) and not os.path.exists(dst):
+            shutil.copyfile(src, dst)
 
 # --- GitHub upload helper (unchanged) ---
 GITHUB_TOKEN        = st.secrets["github"]["token"]
