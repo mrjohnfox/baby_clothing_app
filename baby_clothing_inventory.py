@@ -10,11 +10,6 @@ from io import BytesIO
 from PIL import Image as PILImage
 from supabase import create_client, Client
 
-# Install supabase-py if you haven't already:
-# pip install supabase
-
-from supabase import create_client, Client
-
 # --- Supabase client setup ---
 SUPABASE_URL = st.secrets["supabase"]["url"]
 SUPABASE_KEY = st.secrets["supabase"]["key"]
@@ -58,7 +53,7 @@ def read_inventory() -> pd.DataFrame:
         supabase
         .table("baby_clothes")
         .select("*")
-        .order("category", ascending=True)
+        .order("category", {"ascending": True})
         .execute()
     )
     data = resp.data or []
@@ -153,17 +148,17 @@ if menu == "Add Item":
 
         # insert into Supabase
         insert_payload = {
-            "category":   category,
-            "age_range":  age_range,
-            "photo_path": gh_url,
-            "description":description,
+            "category":    category,
+            "age_range":   age_range,
+            "photo_path":  gh_url,
+            "description": description,
         }
         supabase.table("baby_clothes").insert(insert_payload).execute()
 
         st.success("Item added!")
         # clear form
         st.session_state.reset_add_item = not reset
-        st.experimental_rerun()
+        st.rerun()
 
 # --- 2. View Inventory ---
 elif menu == "View Inventory":
@@ -248,4 +243,4 @@ elif menu == "Export/Import":
         df2 = pd.read_csv(up)
         supabase.table("baby_clothes").insert(df2.to_dict(orient="records")).execute()
         st.success("Imported!")
-        st.experimental_rerun()
+        st.rerun()
