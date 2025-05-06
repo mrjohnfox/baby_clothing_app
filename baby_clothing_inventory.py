@@ -15,12 +15,15 @@ PROJECT_ROOT = os.getcwd()
 ORIG_DB      = os.path.join(PROJECT_ROOT, "baby_clothes_inventory.db")
 ORIG_PHOTOS  = os.path.join(PROJECT_ROOT, "baby_clothes_photos")
 
-# Use Streamlit's data directory
-DATA_DIR    = "/mnt/data"
-DB_PATH     = os.path.join(DATA_DIR,    "baby_clothes_inventory.db")
-PHOTOS_DIR  = os.path.join(DATA_DIR,    "baby_clothes_photos")
+# Use Streamlit's data directory (or a local 'data' folder if you prefer)
+DATA_DIR   = "/mnt/data"
+# 1) ensure the base data dir exists first
+os.makedirs(DATA_DIR, exist_ok=True)
 
-# 1) ensure our data dir exists
+DB_PATH    = os.path.join(DATA_DIR, "baby_clothes_inventory.db")
+PHOTOS_DIR = os.path.join(DATA_DIR, "baby_clothes_photos")
+
+# 2) now create the photos folder
 os.makedirs(PHOTOS_DIR, exist_ok=True)
 
 # 2) copy the original DB into /mnt/data if it's not already there
