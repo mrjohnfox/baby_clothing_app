@@ -7,31 +7,15 @@ import os
 import time
 import requests
 import base64
-import tempfile
 import shutil
 from io import BytesIO
 from PIL import Image as PILImage
 
-# --- Persisted storage under /mnt/data ---
-PERSIST_DIR = "/mnt/data/baby_clothing_app"
-os.makedirs(PERSIST_DIR, exist_ok=True)
-
-# 1) Migrate the original DB from your repo into /mnt/data on first run
-ORIG_DB = os.path.join(os.getcwd(), "baby_clothes_inventory.db")
-DB_PATH = os.path.join(PERSIST_DIR, "baby_clothes_inventory.db")
-if os.path.exists(ORIG_DB) and not os.path.exists(DB_PATH):
-    shutil.copyfile(ORIG_DB, DB_PATH)
-
-# 2) Migrate the original photos into /mnt/data on first run
-ORIG_PHOTOS = os.path.join(os.getcwd(), "baby_clothes_photos")
-PHOTOS_DIR  = os.path.join(PERSIST_DIR, "baby_clothes_photos")
+# --- Paths & storage in repo folder (persistent between restarts) ---
+PROJECT_ROOT = os.getcwd()
+DB_PATH      = os.path.join(PROJECT_ROOT, "baby_clothes_inventory.db")
+PHOTOS_DIR   = os.path.join(PROJECT_ROOT, "baby_clothes_photos")
 os.makedirs(PHOTOS_DIR, exist_ok=True)
-if os.path.isdir(ORIG_PHOTOS):
-    for fname in os.listdir(ORIG_PHOTOS):
-        src = os.path.join(ORIG_PHOTOS, fname)
-        dst = os.path.join(PHOTOS_DIR, fname)
-        if os.path.isfile(src) and not os.path.exists(dst):
-            shutil.copyfile(src, dst)
 
 # --- GitHub upload helper (unchanged) ---
 GITHUB_TOKEN        = st.secrets["github"]["token"]
@@ -112,9 +96,8 @@ def show_image(path: str, caption: str = ""):
         if path.startswith("http"):
             st.image(path, use_container_width=True, caption=caption)
         else:
-            # normalize any backslashes so basename works on Linux
-            clean_path = path.replace("\\", "/")
-            fn = os.path.basename(clean_path)
+            # normalize Windows backslashes, then basename
+            fn    = os.path.basename(path.replace("\\", "/"))
             local = os.path.join(PHOTOS_DIR, fn)
             if os.path.exists(local):
                 st.image(local, use_container_width=True, caption=caption)
@@ -131,22 +114,26 @@ if menu == "Add Item":
     form_key = f"add_item_form_{st.session_state.reset_add_item}"
 
     with st.form(key=form_key):
-        c1, c2 = st.columns(2)
-        with c1:
+        cols = st.columns(2)
+        with cols[0]:
             category = st.selectbox(
                 "Category",
-                ["Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
-                 "Jumpers","Accessories","Shoes","Sleepwear","Sets",
-                 "Home","Food Prep","Dungarees"],
-                key="form_category"
+                [
+                    "Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
+                    "Jumpers","Accessories","Shoes","Sleepwear","Sets",
+                    "Home","Food Prep","Dungarees"
+                ],
+                key="form_category",
             )
-        with c2:
+        with cols[1]:
             age_range = st.selectbox(
                 "Age Range",
-                ["0–3 months","3–6 months","6–9 months","9–12 months",
-                 "12–18 months","18–24 months","24–36 months",
-                 "3–4 years","4–5 years","5–6 years","No age"],
-                key="form_age_range"
+                [
+                    "0–3 months","3–6 months","6–9 months","9–12 months",
+                    "12–18 months","18–24 months","24–36 months",
+                    "3–4 years","4–5 years","5–6 years","No age"
+                ],
+                key="form_age_range",
             )
 
         description = st.text_area("Description", key="form_description")
@@ -188,17 +175,8 @@ if menu == "Add Item":
                 )
                 conn.commit()
 
-            # 4) persist DB back to project root (only if it's actually a different file)
-            target_db = os.path.join(PROJECT_ROOT, "baby_clothes_inventory.db")
-            if DB_PATH != target_db:
-                try:
-                    shutil.copyfile(DB_PATH, target_db)
-                except Exception as e:
-                    st.warning(f"Could not persist DB back to project root: {e}")
-
             st.success("Item added!")
             time.sleep(1)
-            st.session_state.reset_add_item = not st.session_state.reset_add_item
             st.rerun()
 
 # --- 2. View Inventory ---
@@ -214,7 +192,7 @@ elif menu == "View Inventory":
                 cols = st.columns(min(3, len(items)))
                 for i, row in items.iterrows():
                     with cols[i % len(cols)]:
-                        show_image(row["photo_path"], row["description"])
+                        show_image(row["photo_path"], caption=row["description"])
                         st.write(f"**Age:** {row['age_range']}")
 
 # --- 3. Search & Manage ---
@@ -230,8 +208,10 @@ elif menu == "Search & Manage":
         sel_a = st.multiselect("Age Range", options=ages, default=[])
         tq    = st.text_input("Search Description…")
 
-        if not sel_c: sel_c = cats
-        if not sel_a: sel_a = ages
+        if not sel_c:
+            sel_c = cats
+        if not sel_a:
+            sel_a = ages
 
         filt = df[df["category"].isin(sel_c) & df["age_range"].isin(sel_a)]
         if tq:
@@ -243,7 +223,7 @@ elif menu == "Search & Manage":
         else:
             for _, row in filt.iterrows():
                 with st.expander(f"{row['category']} – {row['description']}"):
-                    show_image(row["photo_path"], row["description"])
+                    show_image(row["photo_path"], caption=row["description"])
 
 # --- 4. Visualize Data ---
 elif menu == "Visualize Data":
@@ -253,9 +233,14 @@ elif menu == "Visualize Data":
         st.info("No data to visualize.")
     else:
         st.subheader("Items by Category")
-        fig, ax = plt.subplots(); df["category"].value_counts().plot.bar(ax=ax); st.pyplot(fig)
+        fig, ax = plt.subplots()
+        df["category"].value_counts().plot.bar(ax=ax)
+        st.pyplot(fig)
+
         st.subheader("Age Range Distribution")
-        fig2, ax2 = plt.subplots(); df["age_range"].value_counts().plot.pie(ax=ax2, autopct="%1.1f%%"); st.pyplot(fig2)
+        fig2, ax2 = plt.subplots()
+        df["age_range"].value_counts().plot.pie(ax=ax2, autopct="%1.1f%%")
+        st.pyplot(fig2)
 
 # --- 5. Gallery ---
 elif menu == "Gallery":
