@@ -175,11 +175,11 @@ if menu == "Add Item":
 
             # 4) persist DB back to project root (only if it's actually a different file)
             target_db = os.path.join(PROJECT_ROOT, "baby_clothes_inventory.db")
-                if DB_PATH != target_db:
-            try:
-                shutil.copyfile(DB_PATH, target_db)
+            if DB_PATH != target_db:
+                try:
+                    shutil.copyfile(DB_PATH, target_db)
                 except Exception as e:
-                st.warning(f"Could not persist DB back to project root: {e}")
+                    st.warning(f"Could not persist DB back to project root: {e}")
 
             st.success("Item added!")
             time.sleep(1)
