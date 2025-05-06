@@ -156,7 +156,7 @@ if menu == "Add Item":
         st.success("Item added!")
         # clear form
         st.session_state.reset_add_item = not reset
-        st.experimental_rerun()
+        st.rerun()
 
 # --- 2. View Inventory ---
 elif menu == "View Inventory":
@@ -240,4 +240,4 @@ elif menu == "Export/Import":
         df2 = pd.read_csv(up)
         supabase.table("baby_clothes").insert(df2.to_dict("records")).execute()
         st.success("Imported!")
-        st.experimental_rerun()
+        st.rerun()
