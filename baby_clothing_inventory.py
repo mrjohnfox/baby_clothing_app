@@ -109,10 +109,14 @@ def show_image(path: str, caption: str = ""):
 # --- 1. Add Item ---
 if menu == "Add Item":
     st.title("Add New Baby Clothing Item")
+
+    # this flag drives our dynamic widget-keys
     if "reset_add_item" not in st.session_state:
         st.session_state.reset_add_item = False
-    form_key = f"add_item_form_{st.session_state.reset_add_item}"
+    reset = st.session_state.reset_add_item
 
+    # build a form whose key changes whenever reset flips
+    form_key = f"add_item_form_{reset}"
     with st.form(key=form_key):
         cols = st.columns(2)
         with cols[0]:
@@ -123,7 +127,7 @@ if menu == "Add Item":
                     "Jumpers","Accessories","Shoes","Sleepwear","Sets",
                     "Home","Food Prep","Dungarees"
                 ],
-                key="form_category",
+                key=f"form_category_{reset}",
             )
         with cols[1]:
             age_range = st.selectbox(
@@ -133,16 +137,29 @@ if menu == "Add Item":
                     "12–18 months","18–24 months","24–36 months",
                     "3–4 years","4–5 years","5–6 years","No age"
                 ],
-                key="form_age_range",
+                key=f"form_age_range_{reset}",
             )
 
-        description = st.text_area("Description", key="form_description")
+        description = st.text_area(
+            "Description",
+            key=f"form_description_{reset}",
+        )
+
         st.write("### Upload a Photo or Take a Photo")
-        cam = st.camera_input("📷 Take a Photo", key="form_cam")
-        upl = st.file_uploader("Upload Photo", type=["jpg","png"], key="form_upl")
+        cam = st.camera_input(
+            "📷 Take a Photo",
+            key=f"form_cam_{reset}"
+        )
+        upl = st.file_uploader(
+            "Upload Photo",
+            type=["jpg","png"],
+            key=f"form_upl_{reset}"
+        )
+
         submit = st.form_submit_button("Add Item")
 
         if submit:
+            # grab bytes + filename
             if cam:
                 data = cam.getvalue()
                 fn   = f"{int(time.time()*1000)}.jpg"
@@ -176,6 +193,9 @@ if menu == "Add Item":
                 conn.commit()
 
             st.success("Item added!")
+
+            # flip the reset‐flag so all keys change on rerun → clears form
+            st.session_state.reset_add_item = not reset
             time.sleep(1)
             st.rerun()
 
