@@ -78,32 +78,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Added css for gallery fix
-st.markdown("""
-<style>
-.gallery {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  overflow-x: auto;
-  padding: 1rem 0;
-}
-.gallery-item {
-  flex: 0 0 auto;
-  width: 200px;
-}
-.gallery-item img {
-  width: 100%;
-  height: auto;
-  border-radius: 0.5rem;
-}
-.gallery-item p {
-  text-align: center;
-  margin-top: 0.5rem;
-}
-</style>
-""", unsafe_allow_html=True)
-
 # Mobile-first gallery CSS
 st.markdown("""
     <style>
@@ -148,6 +122,32 @@ st.markdown("""
       }
     }
     </style>
+""", unsafe_allow_html=True)
+
+# Added css for gallery fix
+st.markdown("""
+<style>
+.gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  overflow-x: auto;
+  padding: 1rem 0;
+}
+.gallery-item {
+  flex: 0 0 auto;
+  width: 200px;
+}
+.gallery-item img {
+  width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+}
+.gallery-item p {
+  text-align: center;
+  margin-top: 0.5rem;
+}
+</style>
 """, unsafe_allow_html=True)
 
 # --- Sidebar menu ---
