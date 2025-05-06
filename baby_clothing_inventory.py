@@ -49,15 +49,14 @@ def upload_image_to_github(image_bytes: bytes, filename: str) -> str | None:
 # --- Helper to always fetch fresh inventory from Supabase ---
 @st.cache_data
 def read_inventory() -> pd.DataFrame:
-    resp = (
-        supabase
-        .table("baby_clothes")
-        .select("*")
-        .order("category", {"ascending": True})
-        .execute()
-    )
+    # fetch all rows (no .order() here)
+    resp = supabase.table("baby_clothes").select("*").execute()
     data = resp.data or []
-    return pd.DataFrame(data)
+    df = pd.DataFrame(data)
+    # sort client-side by category
+    if not df.empty:
+        df = df.sort_values("category", ignore_index=True)
+    return df
 
 # --- Page config & CSS ---
 st.set_page_config(
@@ -147,18 +146,17 @@ if menu == "Add Item":
             st.stop()
 
         # insert into Supabase
-        insert_payload = {
+        supabase.table("baby_clothes").insert({
             "category":    category,
             "age_range":   age_range,
             "photo_path":  gh_url,
             "description": description,
-        }
-        supabase.table("baby_clothes").insert(insert_payload).execute()
+        }).execute()
 
         st.success("Item added!")
         # clear form
         st.session_state.reset_add_item = not reset
-        st.rerun()
+        st.experimental_rerun()
 
 # --- 2. View Inventory ---
 elif menu == "View Inventory":
@@ -184,7 +182,7 @@ elif menu == "Search & Manage":
         st.info("No items to manage.")
     else:
         cats = sorted(df["category"].unique())
-        ages= sorted(df["age_range"].unique())
+        ages = sorted(df["age_range"].unique())
         sel_c = st.multiselect("Category", options=cats, default=cats)
         sel_a = st.multiselect("Age Range", options=ages, default=ages)
         tq    = st.text_input("Search Description…")
@@ -215,8 +213,7 @@ elif menu == "Visualize Data":
 
         st.subheader("Age Range Distribution")
         fig2, ax2 = plt.subplots()
-        df["age_range"].value_counts().plot.pie(
-            ax=ax2, autopct="%1.1f%%")
+        df["age_range"].value_counts().plot.pie(ax=ax2, autopct="%1.1f%%")
         st.pyplot(fig2)
 
 # --- 5. Gallery ---
@@ -241,6 +238,6 @@ elif menu == "Export/Import":
     up = st.file_uploader("Upload CSV to import", type="csv")
     if up:
         df2 = pd.read_csv(up)
-        supabase.table("baby_clothes").insert(df2.to_dict(orient="records")).execute()
+        supabase.table("baby_clothes").insert(df2.to_dict("records")).execute()
         st.success("Imported!")
-        st.rerun()
+        st.experimental_rerun()
