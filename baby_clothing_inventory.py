@@ -289,25 +289,25 @@ elif menu == "Visualize Data":
         df["age_range"].value_counts().plot.pie(ax=ax2, autopct="%1.1f%%")
         st.pyplot(fig2)
 
-# --- 5. Gallery (swipeable!) ---
+# --- 5. Gallery (HTML carousel) ---
 elif menu == "Gallery":
     st.title("Photo Gallery")
     df = read_inventory()
     if df.empty:
         st.info("No photos available.")
     else:
-        # build one big HTML string
+        # build one big HTML block
         gallery_html = '<div class="gallery">'
-        for _, row in df.iterrows():
+        for row in df.itertuples():
             gallery_html += f'''
-                <div class="gallery-item">
-                  <img src="{row["photo_path"]}" alt="{row["description"]}"/>
-                  <p>{row["category"]} ({row["age_range"]})</p>
-                </div>
+            <div class="gallery-item">
+              <img src="{row.photo_path}" alt="{row.description}" />
+              <p>{row.category} ({row.age_range})</p>
+            </div>
             '''
         gallery_html += '</div>'
 
-        # render it as unsafe HTML so it actually shows up
+        # render it as HTML
         st.markdown(gallery_html, unsafe_allow_html=True)
 
 # --- 6. Export/Import ---
