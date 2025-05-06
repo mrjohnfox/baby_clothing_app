@@ -8,6 +8,7 @@ import requests
 import base64
 from io import BytesIO
 from PIL import Image as PILImage
+from supabase import create_client, Client
 
 # Install supabase-py if you haven't already:
 # pip install supabase
