@@ -4,3 +4,4 @@ matplotlib
 streamlit-back-camera-input
 transformers
 torch
+supabase-py
