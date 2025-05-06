@@ -97,7 +97,9 @@ def show_image(path: str, caption: str = ""):
         if path.startswith("http"):
             st.image(path, use_container_width=True, caption=caption)
         else:
-            fn    = os.path.basename(path)
+            # normalize any backslashes so basename works on Linux
+            clean_path = path.replace("\\", "/")
+            fn = os.path.basename(clean_path)
             local = os.path.join(PHOTOS_DIR, fn)
             if os.path.exists(local):
                 st.image(local, use_container_width=True, caption=caption)
