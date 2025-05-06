@@ -249,5 +249,3 @@ elif menu == "Export/Import":
         supabase.table("baby_clothes").insert(df2.to_dict(orient="records")).execute()
         st.success("Imported!")
         st.experimental_rerun()
-
-conn.close()
