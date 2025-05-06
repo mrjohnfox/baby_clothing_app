@@ -12,26 +12,24 @@ import shutil
 from io import BytesIO
 from PIL import Image as PILImage
 
-# --- Paths & a writable copy in tempdir ---
-PROJECT_ROOT = os.getcwd()
-WORKING_DIR  = tempfile.gettempdir()
-ORIG_DB      = os.path.join(PROJECT_ROOT, "baby_clothes_inventory.db")
-ORIG_PHOTOS  = os.path.join(PROJECT_ROOT, "baby_clothes_photos")
+# --- Persisted storage under /mnt/data ---
+PERSIST_DIR = "/mnt/data/baby_clothing_app"
+os.makedirs(PERSIST_DIR, exist_ok=True)
 
-# this is where we'll actually read/write during runtime
-DB_PATH    = os.path.join(WORKING_DIR,    "baby_clothes_inventory.db")
-PHOTOS_DIR = os.path.join(WORKING_DIR,    "baby_clothes_photos")
-
-# 1) Copy your repo’s DB into the temp dir (once)
+# 1) Migrate the original DB from your repo into /mnt/data on first run
+ORIG_DB = os.path.join(os.getcwd(), "baby_clothes_inventory.db")
+DB_PATH = os.path.join(PERSIST_DIR, "baby_clothes_inventory.db")
 if os.path.exists(ORIG_DB) and not os.path.exists(DB_PATH):
     shutil.copyfile(ORIG_DB, DB_PATH)
 
-# 2) Mirror the photos folder into temp
+# 2) Migrate the original photos into /mnt/data on first run
+ORIG_PHOTOS = os.path.join(os.getcwd(), "baby_clothes_photos")
+PHOTOS_DIR  = os.path.join(PERSIST_DIR, "baby_clothes_photos")
 os.makedirs(PHOTOS_DIR, exist_ok=True)
-if os.path.exists(ORIG_PHOTOS):
+if os.path.isdir(ORIG_PHOTOS):
     for fname in os.listdir(ORIG_PHOTOS):
         src = os.path.join(ORIG_PHOTOS, fname)
-        dst = os.path.join(PHOTOS_DIR,   fname)
+        dst = os.path.join(PHOTOS_DIR, fname)
         if os.path.isfile(src) and not os.path.exists(dst):
             shutil.copyfile(src, dst)
 
