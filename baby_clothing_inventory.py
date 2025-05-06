@@ -1,6 +1,5 @@
 from streamlit_back_camera_input import back_camera_input
 import streamlit as st
-import sqlite3
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
@@ -10,53 +9,15 @@ import base64
 from io import BytesIO
 from PIL import Image as PILImage
 
-import tempfile
-import shutil
+# Install supabase-py if you haven't already:
+# pip install supabase
 
-# --- Paths & storage under a data folder inside your repo (or /tmp) ---
-PROJECT_ROOT = os.getcwd()
+from supabase import create_client, Client
 
-# You can either write under your own project...
-DATA_DIR = os.path.join(PROJECT_ROOT, "data")
-
-# …or, if you prefer the system temp area:
-# DATA_DIR = os.path.join(tempfile.gettempdir(), "baby_clothing_data")
-
-# 1) make sure the base data dir exists
-os.makedirs(DATA_DIR, exist_ok=True)
-
-# 2) define your DB and photos inside it
-DB_PATH    = os.path.join(DATA_DIR, "baby_clothes_inventory.db")
-PHOTOS_DIR = os.path.join(DATA_DIR, "baby_clothes_photos")
-
-# 3) now create the photos folder
-os.makedirs(PHOTOS_DIR, exist_ok=True)
-
-# 4) if you have an original DB/shippped photos, copy them in
-ORIG_DB     = os.path.join(PROJECT_ROOT, "baby_clothes_inventory.db")
-ORIG_PHOTOS = os.path.join(PROJECT_ROOT, "baby_clothes_photos")
-
-if os.path.exists(ORIG_DB) and not os.path.exists(DB_PATH):
-    shutil.copyfile(ORIG_DB, DB_PATH)
-
-if os.path.isdir(ORIG_PHOTOS):
-    for fname in os.listdir(ORIG_PHOTOS):
-        src = os.path.join(ORIG_PHOTOS, fname)
-        dst = os.path.join(PHOTOS_DIR, fname)
-        if os.path.isfile(src) and not os.path.exists(dst):
-            shutil.copyfile(src, dst)
-
-# 2) copy the original DB into /mnt/data if it's not already there
-if os.path.exists(ORIG_DB) and not os.path.exists(DB_PATH):
-    shutil.copyfile(ORIG_DB, DB_PATH)
-
-# 3) copy any shipped photos into /mnt/data if not already present
-if os.path.isdir(ORIG_PHOTOS):
-    for fname in os.listdir(ORIG_PHOTOS):
-        src = os.path.join(ORIG_PHOTOS, fname)
-        dst = os.path.join(PHOTOS_DIR, fname)
-        if os.path.isfile(src) and not os.path.exists(dst):
-            shutil.copyfile(src, dst)
+# --- Supabase client setup ---
+SUPABASE_URL = st.secrets["supabase_url"]
+SUPABASE_KEY = st.secrets["supabase_key"]
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- GitHub upload helper (unchanged) ---
 GITHUB_TOKEN        = st.secrets["github"]["token"]
@@ -64,16 +25,16 @@ GITHUB_REPO         = "mrjohnfox/baby_clothing_app"
 GITHUB_PHOTO_FOLDER = "baby_clothes_photos"
 GITHUB_API_URL      = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{GITHUB_PHOTO_FOLDER}"
 
-def upload_image_to_github(image_bytes, filename):
+def upload_image_to_github(image_bytes: bytes, filename: str) -> str | None:
     headers = {
         "Authorization": f"token {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github+json",
+        "Accept":        "application/vnd.github+json",
     }
-    url = f"{GITHUB_API_URL}/{filename}"
+    url     = f"{GITHUB_API_URL}/{filename}"
     content = base64.b64encode(image_bytes).decode("utf-8")
 
     get_resp = requests.get(url, headers=headers)
-    sha = get_resp.json().get("sha") if get_resp.status_code == 200 else None
+    sha      = get_resp.json().get("sha") if get_resp.status_code == 200 else None
 
     data = {"message": f"Upload {filename}", "content": content}
     if sha:
@@ -81,31 +42,26 @@ def upload_image_to_github(image_bytes, filename):
 
     put_resp = requests.put(url, headers=headers, json=data)
     if put_resp.status_code in (200, 201):
-        return f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/{GITHUB_PHOTO_FOLDER}/{filename}"
+        return (
+            f"https://raw.githubusercontent.com/"
+            f"{GITHUB_REPO}/main/{GITHUB_PHOTO_FOLDER}/{filename}"
+        )
     else:
         st.error(f"GitHub upload failed: {put_resp.json()}")
         return None
 
-# --- Single persistent connection for writes ---
-conn   = sqlite3.connect(DB_PATH, check_same_thread=False)
-cursor = conn.cursor()
-cursor.execute(
-    """
-    CREATE TABLE IF NOT EXISTS baby_clothes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        category TEXT,
-        age_range TEXT,
-        photo_path TEXT,
-        description TEXT
+# --- Helper to always fetch fresh inventory from Supabase ---
+@st.cache_data
+def read_inventory() -> pd.DataFrame:
+    resp = (
+        supabase
+        .table("baby_clothes")
+        .select("*")
+        .order("category", ascending=True)
+        .execute()
     )
-    """
-)
-conn.commit()
-
-# --- Helper to always read fresh inventory ---
-def read_inventory():
-    with sqlite3.connect(DB_PATH, check_same_thread=False) as con:
-        return pd.read_sql("SELECT * FROM baby_clothes", con)
+    data = resp.data or []
+    return pd.DataFrame(data)
 
 # --- Page config & CSS ---
 st.set_page_config(
@@ -113,26 +69,24 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="auto",
 )
-st.markdown(
-    """
+st.markdown("""
     <style>
     @media (max-width: 768px) {
       [data-testid="column"] { width:100% !important; display:block !important; }
-      button, .stButton>button { width:100% !important; margin:0.5rem 0!important; font-size:1rem!important; padding:0.75rem!important; }
+      button, .stButton>button { width:100% !important; margin:0.5rem 0!important;
+                                 font-size:1rem!important; padding:0.75rem!important; }
       textarea, input, .stTextInput>div>input { font-size:1rem!important; }
       .stPlotlyChart, .stPyplotContainer { padding:0!important; }
     }
     button { font-size:16px!important; padding:10px!important; }
     .streamlit-expander { overflow-y:auto!important; max-height:300px; }
     </style>
-    """,
-    unsafe_allow_html=True,
-)
+""", unsafe_allow_html=True)
 
 # --- Sidebar menu ---
 menu = st.sidebar.radio(
     "Menu",
-    ["Add Item", "View Inventory", "Search & Manage", "Visualize Data", "Gallery", "Export/Import"],
+    ["Add Item","View Inventory","Search & Manage","Visualize Data","Gallery","Export/Import"],
     index=0,
 )
 
@@ -142,12 +96,7 @@ def show_image(path: str, caption: str = ""):
         if path.startswith("http"):
             st.image(path, use_container_width=True, caption=caption)
         else:
-            fn    = os.path.basename(path.replace("\\", "/"))
-            local = os.path.join(PHOTOS_DIR, fn)
-            if os.path.exists(local):
-                st.image(local, use_container_width=True, caption=caption)
-            else:
-                st.warning(f"Image not found: {fn}")
+            st.warning("Invalid image path")
     except Exception as e:
         st.warning(f"Could not load image: {e}")
 
@@ -155,89 +104,65 @@ def show_image(path: str, caption: str = ""):
 if menu == "Add Item":
     st.title("Add New Baby Clothing Item")
 
-    # this flag drives our dynamic widget‐keys
     if "reset_add_item" not in st.session_state:
         st.session_state.reset_add_item = False
     reset = st.session_state.reset_add_item
-
-    # form key flips whenever reset toggles, so widgets clear
     form_key = f"add_item_form_{reset}"
+
     with st.form(key=form_key):
-        cols = st.columns(2)
-        with cols[0]:
+        c1, c2 = st.columns(2)
+        with c1:
             category = st.selectbox(
                 "Category",
-                [
-                    "Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
-                    "Jumpers","Accessories","Shoes","Sleepwear","Sets",
-                    "Home","Food Prep","Dungarees"
-                ],
-                key=f"form_category_{reset}",
+                ["Bodysuits","Pants","Tops","Dresses","Jackets","Knitwear",
+                 "Jumpers","Accessories","Shoes","Sleepwear","Sets",
+                 "Home","Food Prep","Dungarees"],
+                key=f"cat_{reset}"
             )
-        with cols[1]:
+        with c2:
             age_range = st.selectbox(
                 "Age Range",
-                [
-                    "0–3 months","3–6 months","6–9 months","9–12 months",
-                    "12–18 months","18–24 months","24–36 months",
-                    "3–4 years","4–5 years","5–6 years","No age"
-                ],
-                key=f"form_age_range_{reset}",
+                ["0–3 months","3–6 months","6–9 months","9–12 months",
+                 "12–18 months","18–24 months","24–36 months",
+                 "3–4 years","4–5 years","5–6 years","No age"],
+                key=f"age_{reset}"
             )
 
-        description = st.text_area(
-            "Description",
-            key=f"form_description_{reset}",
-        )
-
-        st.write("### Upload a Photo or Take a Photo")
-        cam = st.camera_input("📷 Take a Photo", key=f"form_cam_{reset}")
-        upl = st.file_uploader("Upload Photo", type=["jpg","png"], key=f"form_upl_{reset}")
-
+        description = st.text_area("Description", key=f"desc_{reset}")
+        st.write("### Upload or Snap a Photo")
+        cam = st.camera_input("📷 Take a Photo", key=f"cam_{reset}")
+        upl = st.file_uploader("Upload Photo", type=["jpg","png"], key=f"upl_{reset}")
         submit = st.form_submit_button("Add Item")
 
-        if submit:
-            # pick camera first, else upload
-            if cam:
-                data = cam.getvalue()
-                fn   = f"{int(time.time()*1000)}.jpg"
-            elif upl:
-                data = upl.read()
-                fn   = upl.name
-            else:
-                st.error("Please upload or take a photo.")
-                st.stop()
+    if submit:
+        if cam:
+            img_bytes = cam.getvalue()
+            fn = f"{int(time.time()*1000)}.jpg"
+        elif upl:
+            img_bytes = upl.read()
+            fn = upl.name
+        else:
+            st.error("Please provide a photo.")
+            st.stop()
 
-            # 1) write locally
-            local_path = os.path.join(PHOTOS_DIR, fn)
-            with open(local_path, "wb") as f:
-                f.write(data)
+        # upload to GitHub
+        gh_url = upload_image_to_github(img_bytes, fn)
+        if not gh_url:
+            st.stop()
 
-            # 2) insert into DB
-            cursor.execute(
-                "INSERT INTO baby_clothes(category, age_range, photo_path, description) VALUES (?,?,?,?)",
-                (category, age_range, local_path, description),
-            )
-            conn.commit()
-            row_id = cursor.lastrowid
+        # insert into Supabase
+        insert_payload = {
+            "category":   category,
+            "age_range":  age_range,
+            "photo_path": gh_url,
+            "description":description,
+        }
+        supabase.table("baby_clothes").insert(insert_payload).execute()
 
-            # 3) push to GitHub & update if success
-            gh_url = upload_image_to_github(data, fn)
-            if gh_url:
-                cursor.execute(
-                    "UPDATE baby_clothes SET photo_path = ? WHERE id = ?",
-                    (gh_url, row_id),
-                )
-                conn.commit()
-
-            # 4) Refresh the DB connection so reads see the new row
-            conn.close()
-            conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-            cursor = conn.cursor()
-
-            st.success("Item added!")
-            time.sleep(1)
-            st.rerun()
+        st.success("Item added!")
+        # clear form
+        st.session_state.reset_add_item = not reset
+        st.experimental_rerun()
 
 # --- 2. View Inventory ---
 elif menu == "View Inventory":
@@ -250,7 +175,7 @@ elif menu == "View Inventory":
             with st.expander(cat):
                 items = df[df["category"] == cat]
                 cols = st.columns(min(3, len(items)))
-                for i, row in items.iterrows():
+                for i, row in items.reset_index().iterrows():
                     with cols[i % len(cols)]:
                         show_image(row["photo_path"], caption=row["description"])
                         st.write(f"**Age:** {row['age_range']}")
@@ -263,13 +188,10 @@ elif menu == "Search & Manage":
         st.info("No items to manage.")
     else:
         cats = sorted(df["category"].unique())
-        ages = sorted(df["age_range"].unique())
-        sel_c = st.multiselect("Category", options=cats, default=[])
-        sel_a = st.multiselect("Age Range", options=ages, default=[])
+        ages= sorted(df["age_range"].unique())
+        sel_c = st.multiselect("Category", options=cats, default=cats)
+        sel_a = st.multiselect("Age Range", options=ages, default=ages)
         tq    = st.text_input("Search Description…")
-
-        if not sel_c: sel_c = cats
-        if not sel_a: sel_a = ages
 
         filt = df[df["category"].isin(sel_c) & df["age_range"].isin(sel_a)]
         if tq:
@@ -297,7 +219,8 @@ elif menu == "Visualize Data":
 
         st.subheader("Age Range Distribution")
         fig2, ax2 = plt.subplots()
-        df["age_range"].value_counts().plot.pie(ax=ax2, autopct="%1.1f%%")
+        df["age_range"].value_counts().plot.pie(
+            ax=ax2, autopct="%1.1f%%")
         st.pyplot(fig2)
 
 # --- 5. Gallery ---
@@ -308,21 +231,22 @@ elif menu == "Gallery":
         st.info("No photos available.")
     else:
         cols = st.columns(3)
-        for i, row in df.iterrows():
-            with cols[i % len(cols)]:
+        for idx, row in df.reset_index().iterrows():
+            with cols[idx % 3]:
                 show_image(row["photo_path"], f"{row['category']} ({row['age_range']})")
+                st.write(row["description"])
 
 # --- 6. Export/Import ---
 elif menu == "Export/Import":
     st.title("Export / Import")
     if st.button("Export CSV"):
         df = read_inventory()
-        st.download_button("Download", df.to_csv(index=False), "inventory.csv")
+        st.download_button("Download CSV", df.to_csv(index=False), "inventory.csv")
     up = st.file_uploader("Upload CSV to import", type="csv")
     if up:
         df2 = pd.read_csv(up)
-        df2.to_sql("baby_clothes", conn, if_exists="append", index=False)
+        supabase.table("baby_clothes").insert(df2.to_dict(orient="records")).execute()
         st.success("Imported!")
-        st.rerun()
+        st.experimental_rerun()
 
 conn.close()
