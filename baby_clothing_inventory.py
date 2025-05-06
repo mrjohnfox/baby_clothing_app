@@ -186,21 +186,73 @@ elif menu == "Search & Manage":
     else:
         cats = sorted(df["category"].unique())
         ages = sorted(df["age_range"].unique())
-        sel_c = st.multiselect("Category", options=cats, default=cats)
-        sel_a = st.multiselect("Age Range", options=ages, default=ages)
+
+        # no defaults selected
+        sel_c = st.multiselect("Category", options=cats, default=[])
+        sel_a = st.multiselect("Age Range", options=ages, default=[])
         tq    = st.text_input("Search Description…")
 
+        # treat empty as “all”
+        if not sel_c:
+            sel_c = cats
+        if not sel_a:
+            sel_a = ages
+
+        # apply filters
         filt = df[df["category"].isin(sel_c) & df["age_range"].isin(sel_a)]
         if tq:
             filt = filt[filt["description"].str.contains(tq, case=False, na=False)]
 
         st.write(f"Showing {len(filt)} of {len(df)} items")
+
         if filt.empty:
             st.warning("No matches")
         else:
-            for _, row in filt.iterrows():
-                with st.expander(f"{row['category']} – {row['description']}"):
-                    show_image(row["photo_path"], caption=row["description"])
+            for row in filt.itertuples():
+                with st.expander(f"{row.category} – {row.description}"):
+                    show_image(row.photo_path, caption=row.description)
+                    st.write(f"**Age:** {row.age_range}")
+
+                    # --- EDIT ---
+                    edit_key = f"edit_{row.id}"
+                    if st.button("✏️ Edit", key=edit_key):
+                        st.session_state[edit_key] = True
+                    if st.session_state.get(edit_key, False):
+                        with st.form(key=f"edit_form_{row.id}"):
+                            new_cat = st.selectbox(
+                                "Category",
+                                cats,
+                                index=cats.index(row.category),
+                            )
+                            new_age = st.selectbox(
+                                "Age Range",
+                                ages,
+                                index=ages.index(row.age_range),
+                            )
+                            new_desc = st.text_area("Description", row.description)
+                            if st.form_submit_button("Save"):
+                                supabase.table("baby_clothes")\
+                                    .update({
+                                        "category":   new_cat,
+                                        "age_range":  new_age,
+                                        "description":new_desc,
+                                    })\
+                                    .eq("id", row.id)\
+                                    .execute()
+                                read_inventory.clear()
+                                st.success("Item updated!")
+                                st.rerun()
+
+                    # --- DELETE ---
+                    del_key = f"delete_{row.id}"
+                    if st.button("🗑 Delete", key=del_key):
+                        supabase.table("baby_clothes")\
+                            .delete()\
+                            .eq("id", row.id)\
+                            .execute()
+                        read_inventory.clear()
+                        st.warning("Item deleted!")
+                        st.rerun()
 
 # --- 4. Visualize Data ---
 elif menu == "Visualize Data":
