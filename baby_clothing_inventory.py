@@ -62,8 +62,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="auto",
 )
-
-# Base responsive CSS
 st.markdown("""
     <style>
     @media (max-width: 768px) {
@@ -78,98 +76,24 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Mobile-first gallery CSS
-st.markdown("""
-    <style>
-    /* Full-width columns on very small screens */
-    @media (max-width: 600px) {
-      [data-testid="column"] {
-        width: 100% !important;
-        display: block !important;
-      }
-    }
-
-    /* Swipeable Gallery Container */
-    .gallery {
-      display: flex;
-      overflow-x: auto;
-      gap: 1rem;
-      padding: 1rem 0;
-      -webkit-overflow-scrolling: touch;
-    }
-    .gallery-item {
-      flex: 0 0 auto;
-      width: 80%;
-      max-width: 300px;
-    }
-    .gallery-item img {
-      width: 100%;
-      height: auto;
-      object-fit: cover;
-      border-radius: 8px;
-    }
-    .gallery-item p {
-      text-align: center;
-      margin: 0.5rem 0 0;
-      font-size: 0.9rem;
-    }
-
-    /* Three-across on larger screens */
-    @media (min-width: 768px) {
-      .gallery-item {
-        width: calc((100% - 2rem) / 3);
-        max-width: none;
-      }
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# Added css for gallery fix
-st.markdown("""
-<style>
-.gallery {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  overflow-x: auto;
-  padding: 1rem 0;
-}
-.gallery-item {
-  flex: 0 0 auto;
-  width: 200px;
-}
-.gallery-item img {
-  width: 100%;
-  height: auto;
-  border-radius: 0.5rem;
-}
-.gallery-item p {
-  text-align: center;
-  margin-top: 0.5rem;
-}
-</style>
-""", unsafe_allow_html=True)
-
 # --- Sidebar menu ---
 menu = st.sidebar.radio(
     "Menu",
-    ["Add Item", "View Inventory", "Search & Manage", "Visualize Data", "Gallery", "Export/Import"],
+    ["Add Item","View Inventory","Search & Manage","Visualize Data","Gallery","Export/Import"],
     index=0,
 )
 
 # --- Image display helper ---
 def show_image(path: str, caption: str = ""):
-    try:
-        if path.startswith("http"):
-            st.image(path, use_container_width=True, caption=caption)
-        else:
-            st.warning("Invalid image path")
-    except Exception as e:
-        st.warning(f"Could not load image: {e}")
+    if path.startswith("http"):
+        st.image(path, use_container_width=True, caption=caption)
+    else:
+        st.warning("Invalid image path")
 
 # --- 1. Add Item ---
 if menu == "Add Item":
     st.title("Add New Baby Clothing Item")
+
     if "reset_add_item" not in st.session_state:
         st.session_state.reset_add_item = False
     reset = st.session_state.reset_add_item
@@ -211,10 +135,12 @@ if menu == "Add Item":
             st.error("Please provide a photo.")
             st.stop()
 
+        # 1) upload to GitHub
         gh_url = upload_image_to_github(img_bytes, fn)
         if not gh_url:
             st.stop()
 
+        # 2) insert into Supabase
         supabase.table("baby_clothes").insert({
             "category":    category,
             "age_range":   age_range,
@@ -222,7 +148,9 @@ if menu == "Add Item":
             "description": description,
         }).execute()
 
+        # 🔥 Clear cache so the new row appears immediately
         read_inventory.clear()
+
         st.success("Item added!")
         st.session_state.reset_add_item = not reset
         st.rerun()
@@ -252,18 +180,24 @@ elif menu == "Search & Manage":
     else:
         cats = sorted(df["category"].unique())
         ages = sorted(df["age_range"].unique())
+
+        #  — start with nothing selected —
         sel_c = st.multiselect("Category", options=cats, default=[])
         sel_a = st.multiselect("Age Range", options=ages, default=[])
         tq    = st.text_input("Search Description…")
 
-        if not sel_c: sel_c = cats
-        if not sel_a: sel_a = ages
+        # treat empty as “all”
+        if not sel_c:
+            sel_c = cats
+        if not sel_a:
+            sel_a = ages
 
         filt = df[df["category"].isin(sel_c) & df["age_range"].isin(sel_a)]
         if tq:
             filt = filt[filt["description"].str.contains(tq, case=False, na=False)]
 
         st.write(f"Showing {len(filt)} of {len(df)} items")
+
         if filt.empty:
             st.warning("No matches")
         else:
@@ -271,7 +205,39 @@ elif menu == "Search & Manage":
                 with st.expander(f"{row.category} – {row.description}"):
                     show_image(row.photo_path, caption=row.description)
                     st.write(f"**Age:** {row.age_range}")
-                    # (edit/delete forms remain unchanged)
+
+                    # — EDIT button & form —
+                    edit_key = f"edit_{row.id}"
+                    if st.button("✏️ Edit", key=edit_key):
+                        st.session_state[edit_key] = True
+                    if st.session_state.get(edit_key, False):
+                        with st.form(key=f"form_edit_{row.id}"):
+                            new_cat  = st.selectbox("Category", cats,  index=cats.index(row.category))
+                            new_age  = st.selectbox("Age Range", ages, index=ages.index(row.age_range))
+                            new_desc = st.text_area("Description", row.description)
+                            if st.form_submit_button("Save"):
+                                supabase.table("baby_clothes")\
+                                    .update({
+                                        "category":    new_cat,
+                                        "age_range":   new_age,
+                                        "description": new_desc,
+                                    })\
+                                    .eq("id", row.id)\
+                                    .execute()
+                                read_inventory.clear()
+                                st.success("Item updated!")
+                                st.rerun()
+
+                    # — DELETE button —
+                    del_key = f"del_{row.id}"
+                    if st.button("🗑 Delete", key=del_key):
+                        supabase.table("baby_clothes")\
+                            .delete()\
+                            .eq("id", row.id)\
+                            .execute()
+                        read_inventory.clear()
+                        st.warning("Item deleted!")
+                        st.rerun()
 
 # --- 4. Visualize Data ---
 elif menu == "Visualize Data":
@@ -284,31 +250,24 @@ elif menu == "Visualize Data":
         fig, ax = plt.subplots()
         df["category"].value_counts().plot.bar(ax=ax)
         st.pyplot(fig)
+
         st.subheader("Age Range Distribution")
         fig2, ax2 = plt.subplots()
         df["age_range"].value_counts().plot.pie(ax=ax2, autopct="%1.1f%%")
         st.pyplot(fig2)
 
-# --- 5. Gallery (HTML carousel) ---
+# --- 5. Gallery ---
 elif menu == "Gallery":
     st.title("Photo Gallery")
     df = read_inventory()
     if df.empty:
         st.info("No photos available.")
     else:
-        # build one big HTML string
-        gallery_html = '<div class="gallery">'
-        for row in df.itertuples():
-            gallery_html += f'''
-            <div class="gallery-item">
-              <img src="{row.photo_path}" alt="{row.description}" />
-              <p>{row.category} ({row.age_range})</p>
-            </div>
-            '''
-        gallery_html += '</div>'
-
-        # render it as HTML
-        st.markdown(gallery_html, unsafe_allow_html=True)
+        cols = st.columns(3)
+        for idx, row in df.reset_index().iterrows():
+            with cols[idx % 3]:
+                show_image(row["photo_path"], f"{row.category} ({row.age_range})")
+                st.write(row.description)
 
 # --- 6. Export/Import ---
 elif menu == "Export/Import":
