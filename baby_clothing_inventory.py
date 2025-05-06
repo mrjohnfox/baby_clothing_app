@@ -270,15 +270,18 @@ elif menu == "Gallery":
     if df.empty:
         st.info("No photos available.")
     else:
+        # build one big HTML string
         gallery_html = '<div class="gallery">'
         for _, row in df.iterrows():
             gallery_html += f'''
-              <div class="gallery-item">
-                <img src="{row["photo_path"]}" alt="{row["description"]}"/>
-                <p>{row["category"]} ({row["age_range"]})</p>
-              </div>
+                <div class="gallery-item">
+                  <img src="{row["photo_path"]}" alt="{row["description"]}"/>
+                  <p>{row["category"]} ({row["age_range"]})</p>
+                </div>
             '''
         gallery_html += '</div>'
+
+        # render it as unsafe HTML so it actually shows up
         st.markdown(gallery_html, unsafe_allow_html=True)
 
 # --- 6. Export/Import ---
