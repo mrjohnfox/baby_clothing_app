@@ -296,7 +296,7 @@ elif menu == "Gallery":
     if df.empty:
         st.info("No photos available.")
     else:
-        # build one big HTML block
+        # build one big HTML string
         gallery_html = '<div class="gallery">'
         for row in df.itertuples():
             gallery_html += f'''
