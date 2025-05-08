@@ -205,15 +205,20 @@ elif menu == "Search & Manage":
                 with st.expander(f"{row.category} – {row.description}"):
                     show_image(row.photo_path, caption=row.description)
                     st.write(f"**Age:** {row.age_range}")
-
-                    # — EDIT button & form —
-                    edit_key = f"edit_{row.id}"
-                    if st.button("✏️ Edit", key=edit_key):
-                        st.session_state[edit_key] = True
-                    if st.session_state.get(edit_key, False):
-                        with st.form(key=f"form_edit_{row.id}"):
-                            new_cat  = st.selectbox("Category", cats,  index=cats.index(row.category))
-                            new_age  = st.selectbox("Age Range", ages, index=ages.index(row.age_range))
+# --- EDIT (now a checkbox) ---
+                    edit = st.checkbox("✏️ Edit", key=f"edit_cb_{row.id}")
+                    if edit:
+                        with st.form(key=f"edit_form_{row.id}"):
+                            new_cat = st.selectbox(
+                                "Category",
+                                cats,
+                                index=cats.index(row.category),
+                            )
+                            new_age = st.selectbox(
+                                "Age Range",
+                                ages,
+                                index=ages.index(row.age_range),
+                            )
                             new_desc = st.text_area("Description", row.description)
                             if st.form_submit_button("Save"):
                                 supabase.table("baby_clothes")\
